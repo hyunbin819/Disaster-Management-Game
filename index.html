@@ -48,9 +48,17 @@
         .val-bad { color: #ff6b6b; font-weight: bold; }
         .val-good { color: #51cf66; font-weight: bold; }
 
-        /* 2. 뉴스 속보 모달 */
-        #news-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.85); z-index: 3000; display: none; justify-content: center; align-items: center; }
-        .news-content { background-color: white; width: 90%; max-width: 600px; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 0 50px rgba(255, 255, 255, 0.3); animation: popUp 0.3s ease-out; }
+        /* 2. 뉴스 속보 모달 (수정됨: 팝업 역할) */
+        #news-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: rgba(0, 0, 0, 0.85); z-index: 6000; /* Z-index 높임 */
+            display: none; justify-content: center; align-items: center;
+        }
+        .news-content {
+            background-color: white; width: 90%; max-width: 600px; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 0 50px rgba(255, 255, 255, 0.3); 
+            animation: popUp 0.3s ease-out;
+        }
+        @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .news-badge { display: inline-block; padding: 8px 20px; border-radius: 25px; font-weight: bold; color: white; margin-bottom: 20px; font-size: 1.2em; }
         .bg-bad { background-color: #dc3545; }
         .bg-good { background-color: #28a745; }
@@ -464,16 +472,48 @@
                 document.getElementById('my-area').classList.toggle('active-turn', isMyTurn);
             }
 
-            // 2. 뉴스
+            // 2. 뉴스 (모달 팝업 처리를 위해 JS에서 제어)
+            const newsModal = document.getElementById('news-modal');
+            const newsTitleEl = document.getElementById('news-title');
+            const newsDescEl = document.getElementById('news-desc');
+            const newsBadgeEl = document.getElementById('news-badge');
+            
+            // **[수정 1] 뉴스 모달 팝업 제어:** 턴이 바뀔 때만 모달 팝업을 띄웁니다.
+            const isFirstLoad = gameData.turnCount === 1 && myData.ap === 2; // 첫 턴 시작 시
+            if (isMyTurn && gameData.status !== 'news_shown' && newsModal) {
+                 // Guest는 Host의 시작 버튼을 기다림
+                if (myRole === 'guest' && gameData.turnCount === 1) {
+                    document.getElementById('active-news-ticker').innerHTML = `📰 뉴스: Host가 턴을 시작해야 합니다.`;
+                    return;
+                }
+                
+                // 모달 내용 업데이트
+                if (newsTitleEl) newsTitleEl.innerText = evt.name;
+                if (newsDescEl) newsDescEl.innerHTML = evt.desc;
+                if (newsBadgeEl) {
+                    newsBadgeEl.innerText = evt.badge;
+                    newsBadgeEl.className = `news-badge ${evt.bg}`;
+                }
+                
+                // 모달 띄우기
+                newsModal.style.display = 'flex';
+                // DB에 모달 표시 상태를 기록하여 상대방에게는 팝업이 뜨지 않게 합니다.
+                update(ref(db, `rooms/${roomId}`), { status: 'news_shown' });
+            }
+
+            // 팝업 닫힌 후 메인 화면 뉴스 티커 업데이트
             document.getElementById('active-news-ticker').innerHTML = `📰 오늘의 뉴스: <b class="${evt.bg ? 'bg-'+evt.bg : ''}">${evt.name}</b> (${evt.desc})`;
 
+
             // 3. 내/상대 상태 업데이트
+            // **[수정 2] 상대방 도시 취약점 정보 표시**
             if (elMyCity) elMyCity.innerHTML = `${myData.city.name} <span class="weakness-highlight">(${myData.city.weakText})</span>`;
+            if (elOppCity) elOppCity.innerHTML = `${oppData.city.name} <span class="weakness-highlight">(${oppData.city.weakText})</span>`; // 상대방 취약점 노출
+            
             if (elMyAP) elMyAP.innerText = myData.ap;
             if (elMyDmg) elMyDmg.innerText = `${myData.hp} / ${myData.maxHp}`;
             if (elMyMoney) elMyMoney.innerText = myData.money;
             
-            if (elOppCity) elOppCity.innerHTML = `${oppData.city.name}`;
             if (elOppDmg) elOppDmg.innerText = `${oppData.hp} / ${oppData.maxHp}`;
             if (elOppMoney) elOppMoney.innerText = oppData.money;
 
@@ -555,6 +595,14 @@
         }
 
         // --- 액션 로직 ---
+
+        // 뉴스 모달 확인 버튼 (Confirm News)
+        document.getElementById('confirm-news-btn').addEventListener('click', async () => {
+             document.getElementById('news-modal').style.display = 'none';
+             if (gameData.status === 'news_shown') {
+                await update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+             }
+        });
 
         // 1. 카드 뽑기 (별도 액션)
         document.getElementById('draw-btn').addEventListener('click', async () => {
@@ -659,11 +707,13 @@
 
                 disasters.forEach(d => {
                     let dmg = d.dmg;
-                    
+                    let defenseLog = "";
+
                     // A. 공격력 계산 (이벤트 및 상성)
                     if(evt.type === 'attack_buff') dmg = Math.floor(dmg * evt.val);
                     if(d.dType === gameData[oppRole].city.weakType) { 
                         dmg = Math.floor(dmg * 1.5); 
+                        defenseLog += `[약점공략!] `;
                     }
                     
                     // B. 방어 계산 (콤보 계산 헬퍼 사용)
@@ -731,6 +781,7 @@
             updates[`rooms/${roomId}/turn`] = nextTurn;
             updates[`rooms/${roomId}/turnCount`] = gameData.turnCount + 1;
             updates[`rooms/${roomId}/currentEvent`] = nextEvent;
+            updates[`rooms/${roomId}/status`] = 'waiting_for_news'; // 뉴스 모달을 띄우기 위한 상태 전환
 
             await update(ref(db), updates);
         });
