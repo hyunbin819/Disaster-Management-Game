@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>재난 관리 카드 게임 (Online Full Version)</title>
+    <title>재난 관리 카드 게임 (Online Final)</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
-
         /* === 1. 로비 & 인트로 스타일 === */
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
         #intro-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
@@ -183,9 +182,9 @@
         const MitigationPhase = { PREVENTION: "예방", PREPAREDNESS: "준비", GENERAL: "범용" };
         
         const CITY_TYPES = [
-            { name: "🌊 해안 도시", weakType: DisasterType.WIND_FLOOD, weakText: "풍수해 취약" },
-            { name: "🏚️ 노후 도심", weakType: DisasterType.WINTER, weakText: "겨울철 취약" },
-            { name: "⛰️ 산간 지역", weakType: DisasterType.MOUNTAIN, weakText: "산악 취약" }
+            { name: "🌊 해안 도시", weakType: DisasterType.WIND_FLOOD, weakText: "풍수해 취약", maxHp: 2000 },
+            { name: "🏚️ 노후 도심", weakType: DisasterType.WINTER, weakText: "겨울철 취약", maxHp: 2000 },
+            { name: "⛰️ 산간 지역", weakType: DisasterType.MOUNTAIN, weakText: "산악 취약", maxHp: 2000 }
         ];
 
         const EVENTS = [
@@ -225,7 +224,6 @@
                 {name:"창문 보강", type:"mitigation", subType:"specific", target:"태풍", phase:MitigationPhase.PREPAREDNESS, cost:50, power:30},
                 {name:"방화선 구축", type:"mitigation", subType:"specific", target:"산불", phase:MitigationPhase.PREVENTION, cost:200, power:150},
                 {name:"입산 통제", type:"mitigation", subType:"specific", target:"산불", phase:MitigationPhase.PREPAREDNESS, cost:50, power:30},
-                // ... (분량상 핵심 카드 위주로 구성, 실제로는 더 추가 가능)
             ];
             for(let i=0; i<3; i++) mitigations.forEach(m => add(m));
             
@@ -256,32 +254,40 @@
         });
 
         async function initGame() {
-            // 방장: 초기 게임 상태 생성 후 업로드
-            const deck = createDeck();
-            const hostHand = deck.splice(0, 6);
-            const guestHand = deck.splice(0, 6);
+            try {
+                // 방장: 초기 게임 상태 생성 후 업로드
+                const deck = createDeck();
+                const hostHand = deck.splice(0, 6);
+                const guestHand = deck.splice(0, 6);
+                
+                const hostCity = CITY_TYPES[Math.floor(Math.random()*3)];
+                const guestCity = CITY_TYPES[Math.floor(Math.random()*3)];
 
-            const initialState = {
-                status: 'playing',
-                turn: 'host',
-                turnCount: 1,
-                currentEvent: EVENTS[0],
-                deck: deck,
-                host: {
-                    name: 'Host', hp: 0, money: 1000, ap: 2,
-                    city: CITY_TYPES[Math.floor(Math.random()*3)],
-                    hand: hostHand, field: []
-                },
-                guest: {
-                    name: 'Guest', hp: 0, money: 1200, ap: 2, // 밸런스 패치 +200
-                    city: CITY_TYPES[Math.floor(Math.random()*3)],
-                    hand: guestHand, field: []
-                },
-                log: "게임이 시작되었습니다."
-            };
+                const initialState = {
+                    status: 'playing',
+                    turn: 'host',
+                    turnCount: 1,
+                    currentEvent: EVENTS[0],
+                    deck: deck,
+                    host: {
+                        name: 'Host', hp: 0, money: 1000, ap: 2,
+                        city: hostCity, maxHp: hostCity.maxHp,
+                        hand: hostHand, field: []
+                    },
+                    guest: {
+                        name: 'Guest', hp: 0, money: 1200, ap: 2, 
+                        city: guestCity, maxHp: guestCity.maxHp,
+                        hand: guestHand, field: []
+                    },
+                    log: "게임이 시작되었습니다."
+                };
 
-            await set(ref(db, `rooms/${roomId}`), initialState);
-            connectGame();
+                await set(ref(db, `rooms/${roomId}`), initialState);
+                connectGame();
+            } catch(e) {
+                alert("게임 초기화 중 오류가 발생했습니다. Firebase 설정(API Key, DB URL, Rules)을 다시 확인해주세요. 에러: " + e.message);
+                console.error(e);
+            }
         }
 
         function connectGame() {
@@ -289,11 +295,23 @@
             document.getElementById('game-container').style.display = 'block';
             document.getElementById('turn-indicator').style.display = 'block';
 
+            // 데이터베이스 연결 시도 (방이 없으면 에러가 뜸)
             onValue(ref(db, `rooms/${roomId}`), (snap) => {
                 gameData = snap.val();
-                if(!gameData) return alert("방이 존재하지 않거나 종료되었습니다.");
+                if(!gameData) {
+                    if(myRole === 'guest') {
+                        alert("참가하려는 방이 존재하지 않습니다.");
+                        location.reload();
+                        return;
+                    }
+                    return; // host가 연결 끊김
+                }
                 renderGame();
                 checkGameOver();
+            }, (error) => {
+                alert("Firebase 연결 중 오류 발생. 방 이름과 인터넷 연결을 확인해주세요.");
+                console.error(error);
+                location.reload();
             });
         }
 
@@ -303,6 +321,7 @@
             const oppRole = (myRole === 'host') ? 'guest' : 'host';
             const oppData = gameData[oppRole];
             const isMyTurn = (gameData.turn === myRole);
+            const MAX_HP = myData.city.maxHp;
 
             // 1. 턴 표시
             const ind = document.getElementById('turn-indicator');
@@ -317,12 +336,12 @@
             // 3. 내 상태
             document.getElementById('my-city').innerHTML = `${myData.city.name} <span class="weakness">(${myData.city.weakText})</span>`;
             document.getElementById('my-ap').innerText = myData.ap;
-            document.getElementById('my-damage').innerText = myData.hp;
+            document.getElementById('my-damage').innerText = `${myData.hp} / ${MAX_HP}`;
             document.getElementById('my-money').innerText = myData.money;
             
             // 4. 상대 상태
             document.getElementById('opp-city').innerHTML = `${oppData.city.name} <span class="weakness">(${oppData.city.weakText})</span>`;
-            document.getElementById('opp-damage').innerText = oppData.hp;
+            document.getElementById('opp-damage').innerText = `${oppData.hp} / ${oppData.city.maxHp}`;
             document.getElementById('opp-money').innerText = oppData.money;
 
             // 5. 카드 렌더링
@@ -332,9 +351,14 @@
             renderField(document.getElementById('opp-field'), oppData.field || []);
 
             // 6. 버튼 상태
-            document.getElementById('play-btn').disabled = !isMyTurn || myData.ap < 1;
-            document.getElementById('draw-btn').disabled = !isMyTurn || myData.ap < 1;
+            const hasSelected = selectedCardIds.length > 0;
+            const isDisasterOnly = selectedCards.every(c => c.type === 'disaster');
+            
+            document.getElementById('play-btn').disabled = !isMyTurn || myData.ap < 1 || !hasSelected;
+            document.getElementById('draw-btn').disabled = !isMyTurn || myData.ap < 1 || hasSelected;
             document.getElementById('end-btn').disabled = !isMyTurn;
+            document.getElementById('play-btn').innerText = `카드 사용 (${selectedCardIds.length} AP)`;
+
 
             // 7. 로그
             const logBox = document.getElementById('message-log');
@@ -346,6 +370,12 @@
                 logBox.scrollTop = logBox.scrollHeight;
             }
         }
+        
+        // 헬퍼: 현재 선택된 카드 목록 반환
+        function selectedCards() {
+            const myHand = gameData[myRole].hand || [];
+            return myHand.filter(c => selectedCardIds.includes(c.id));
+        }
 
         function renderHand(container, cards, isOpponent) {
             container.innerHTML = "";
@@ -355,7 +385,7 @@
                 
                 if(!isOpponent) {
                     el.innerHTML = `<div style="font-weight:bold">${card.name}</div>`;
-                    if(card.type === 'disaster') el.innerHTML += `<div style="color:#d32f2f">피해: ${card.dmg}</div><div style="font-size:0.8em">${card.dType}</div>`;
+                    if(card.type === 'disaster') el.innerHTML += `<div style="color:#d32f2f">피해: ${card.dmg}</div><div style="font-size:0.8em">${card.dType.split(' ')[0]}</div>`;
                     else el.innerHTML += `<div style="color:#007bff">비용: ${card.cost}</div><div>방어: ${card.power}</div>`;
                     
                     if(selectedCardIds.includes(card.id)) el.classList.add('selected');
@@ -370,34 +400,44 @@
             cards.forEach(card => {
                 const el = document.createElement('div');
                 el.className = `card type-${card.type}`;
-                el.innerHTML = `<div style="font-weight:bold">${card.name}</div><div style="font-size:0.8em">설치됨</div>`;
+                el.innerHTML = `<div style="font-weight:bold">${card.name}</div><div style="font-size:0.8em">${card.type === 'general' ? '범용' : card.target}</div>`;
                 container.appendChild(el);
             });
         }
 
         function toggleSelect(id) {
             if(gameData.turn !== myRole) return;
-            if(selectedCardIds.includes(id)) selectedCardIds = selectedCardIds.filter(x => x !== id);
-            else selectedCardIds.push(id);
+            
+            const card = gameData[myRole].hand.find(c => c.id === id);
+            
+            if(selectedCardIds.includes(id)) {
+                selectedCardIds = selectedCardIds.filter(x => x !== id);
+            } else {
+                // AP 체크를 위해 선택은 허용
+                selectedCardIds.push(id);
+            }
             renderGame();
         }
 
         // --- 액션 로직 ---
 
-        // 1. 카드 뽑기
+        // 1. 카드 뽑기 (별도 액션)
         document.getElementById('draw-btn').addEventListener('click', async () => {
+            const myData = gameData[myRole];
+            if(myData.ap < 1) return alert("AP가 부족합니다.");
+            
             const updates = {};
             const deck = [...(gameData.deck || [])];
             if(deck.length === 0) return alert("덱이 비었습니다!");
             
             const card = deck.pop();
-            const myHand = [...(gameData[myRole].hand || [])];
+            const myHand = [...(myData.hand || [])];
             myHand.push(card);
 
             updates[`rooms/${roomId}/deck`] = deck;
             updates[`rooms/${roomId}/${myRole}/hand`] = myHand;
-            updates[`rooms/${roomId}/${myRole}/ap`] = gameData[myRole].ap - 1;
-            updates[`rooms/${roomId}/log`] = `${myRole}가 카드를 1장 뽑았습니다.`;
+            updates[`rooms/${roomId}/${myRole}/ap`] = myData.ap - 1;
+            updates[`rooms/${roomId}/log`] = `${myRole}가 카드를 1장 뽑았습니다. (1 AP 사용)`;
 
             await update(ref(db), updates);
         });
@@ -407,17 +447,16 @@
             if(selectedCardIds.length === 0) return alert("사용할 카드를 선택하세요.");
             
             const myData = gameData[myRole];
-            const myHand = myData.hand || [];
-            const selectedCards = myHand.filter(c => selectedCardIds.includes(c.id));
+            const cardsToPlay = selectedCards();
             
-            if(myData.ap < selectedCards.length) return alert("AP가 부족합니다.");
+            if(myData.ap < cardsToPlay.length) return alert("AP가 부족합니다.");
 
-            // 비용 계산 (재난 제외)
+            // 1. 비용 계산 및 체크
             let totalCost = 0;
             const evt = gameData.currentEvent;
             
-            const mitigations = selectedCards.filter(c => c.type !== 'disaster');
-            const disasters = selectedCards.filter(c => c.type === 'disaster');
+            const mitigations = cardsToPlay.filter(c => c.type !== 'disaster');
+            const disasters = cardsToPlay.filter(c => c.type === 'disaster');
 
             mitigations.forEach(c => {
                 let cost = c.cost;
@@ -428,73 +467,107 @@
 
             if(myData.money < totalCost) return alert("예산이 부족합니다.");
 
-            // DB 업데이트 준비
+            // 2. DB 업데이트 준비
             const updates = {};
             const oppRole = (myRole === 'host') ? 'guest' : 'host';
             let oppHp = gameData[oppRole].hp;
             let logMsg = "";
 
-            // 방재 카드 설치
+            // 3. 방재 카드 설치
             if(mitigations.length > 0) {
                 const newField = [...(myData.field || []), ...mitigations];
                 updates[`rooms/${roomId}/${myRole}/field`] = newField;
                 logMsg += `${myRole}가 방재시설 ${mitigations.length}개를 설치했습니다. `;
             }
 
-            // 재난 카드 공격
+            // 4. 재난 카드 공격
             if(disasters.length > 0) {
                 const oppField = gameData[oppRole].field || [];
                 let totalDmg = 0;
+                let damageLog = [];
 
                 disasters.forEach(d => {
                     let dmg = d.dmg;
-                    // 이벤트 버프
-                    if(evt.type === 'attack_buff') dmg = Math.floor(dmg * evt.val);
-                    // 상성 (약점)
-                    if(d.dType === gameData[oppRole].city.weakType) dmg = Math.floor(dmg * 1.5);
-                    
-                    // 방어 계산
-                    let mitigationPower = 0;
-                    // 범용 방어
-                    oppField.filter(f => f.type === 'general').forEach(f => mitigationPower += f.power);
-                    // 특정 방어 (콤보 계산 생략 - 복잡도 줄임, 단순 합산)
-                    oppField.filter(f => f.subType === 'specific' && f.target === d.name).forEach(f => mitigationPower += f.power);
+                    let defenseLog = "";
 
+                    // A. 공격력 계산 (이벤트 및 상성)
+                    if(evt.type === 'attack_buff') dmg = Math.floor(dmg * evt.val); // 이벤트 버프
+                    if(d.dType === gameData[oppRole].city.weakType) { 
+                        dmg = Math.floor(dmg * 1.5); // 상성 약점
+                        defenseLog += `[약점공략: ${gameData[oppRole].city.weakText}!] `;
+                    }
+                    
+                    // B. 방어 계산 (콤보 포함)
+                    let generalDefense = 0;
+                    let specificDefense = 0;
+                    
+                    // B-1. 범용 방어
+                    oppField.filter(f => f.type === 'general').forEach(f => {
+                        generalDefense += f.power;
+                    });
+                    
+                    // B-2. 특정 방어 (콤보 효과 적용)
+                    oppField.filter(f => f.subType === 'specific' && f.target === d.name).forEach(f => {
+                        // 💡 콤보 구현: 특정 재난에 맞는 특정 시설은 방어력 1.5배 증폭
+                        const boostedPower = Math.floor(f.power * 1.5); 
+                        specificDefense += boostedPower; 
+                        defenseLog += `[콤보 발동: ${f.name} 효과 증폭!] (${boostedPower} 방어) `;
+                    });
+
+                    const mitigationPower = generalDefense + specificDefense;
                     const finalDmg = Math.max(0, dmg - mitigationPower);
                     totalDmg += finalDmg;
+                    damageLog.push(`${d.name}: ${dmg} 공격 - ${mitigationPower} 방어 = ${finalDmg} 피해`);
                 });
                 
                 oppHp += totalDmg;
                 updates[`rooms/${roomId}/${oppRole}/hp`] = oppHp;
-                logMsg += `${myRole}가 재난으로 ${totalDmg}의 피해를 입혔습니다! `;
+                
+                logMsg += `${myRole}가 재난으로 총 <b>${totalDmg}</b>의 피해를 입혔습니다! (${damageLog.join(', ')}) `;
             }
 
-            // 자원 차감 및 핸드 정리
+            // 5. 자원 차감 및 핸드 정리
             const remainingHand = myHand.filter(c => !selectedCardIds.includes(c.id));
             updates[`rooms/${roomId}/${myRole}/hand`] = remainingHand;
             updates[`rooms/${roomId}/${myRole}/money`] = myData.money - totalCost;
-            updates[`rooms/${roomId}/${myRole}/ap`] = myData.ap - selectedCards.length;
+            updates[`rooms/${roomId}/${myRole}/ap`] = myData.ap - cardsToPlay.length;
             updates[`rooms/${roomId}/log`] = logMsg;
 
             await update(ref(db), updates);
             selectedCardIds = []; // 선택 초기화
         });
 
-        // 3. 턴 종료
+        // 3. 턴 종료 (카드 드로우 및 리셋 로직 포함)
         document.getElementById('end-btn').addEventListener('click', async () => {
             const updates = {};
             const nextTurn = (myRole === 'host') ? 'guest' : 'host';
             const nextEvent = EVENTS[Math.floor(Math.random() * EVENTS.length)];
             
-            // 턴 넘기면서 다음 사람 AP 회복, 돈 지급
+            // 턴 리셋
             const nextData = gameData[nextTurn];
-            updates[`rooms/${roomId}/${nextTurn}/ap`] = 2;
-            updates[`rooms/${roomId}/${nextTurn}/money`] = nextData.money + 100;
+            updates[`rooms/${roomId}/${nextTurn}/ap`] = 2; // AP 리셋
+            updates[`rooms/${roomId}/${nextTurn}/money`] = nextData.money + 100; // 예산 지급
             
+            // 💡 턴 시작 카드 드로우
+            const deck = [...(gameData.deck || [])];
+            const nextHand = [...(nextData.hand || [])];
+            
+            let cardDrawMsg = "";
+            if (deck.length > 0) {
+                const card = deck.pop();
+                nextHand.push(card);
+                updates[`rooms/${roomId}/deck`] = deck;
+                updates[`rooms/${roomId}/${nextTurn}/hand`] = nextHand;
+                cardDrawMsg = `카드 1장 드로우.`;
+            } else {
+                cardDrawMsg = `덱이 비었습니다. 드로우 실패.`;
+            }
+
+            // 턴 정보 업데이트
             updates[`rooms/${roomId}/turn`] = nextTurn;
             updates[`rooms/${roomId}/turnCount`] = gameData.turnCount + 1;
             updates[`rooms/${roomId}/currentEvent`] = nextEvent;
-            updates[`rooms/${roomId}/log`] = `--- 턴 종료! ${nextTurn}의 차례 (뉴스: ${nextEvent.name}) ---`;
+            updates[`rooms/${roomId}/log`] = `--- 턴 종료! ${nextTurn}의 차례 (뉴스: ${nextEvent.name}). ${cardDrawMsg} ---`;
 
             await update(ref(db), updates);
         });
@@ -505,15 +578,17 @@
 
             const hostDmg = gameData.host.hp;
             const guestDmg = gameData.guest.hp;
+            const hostMaxHp = gameData.host.city.maxHp;
+            const guestMaxHp = gameData.guest.city.maxHp;
             let winner = null;
             let reason = "";
 
-            if(hostDmg >= 2000) { winner = "Guest"; reason = "Host 도시 파산"; }
-            else if(guestDmg >= 2000) { winner = "Host"; reason = "Guest 도시 파산"; }
-            else if(gameData.turnCount > 20) {
-                if(hostDmg < guestDmg) { winner = "Host"; reason = "턴 종료 (피해량 승)"; }
-                else if(guestDmg < hostDmg) { winner = "Guest"; reason = "턴 종료 (피해량 승)"; }
-                else { winner = "Draw"; reason = "무승부"; }
+            if(hostDmg >= hostMaxHp) { winner = "Guest"; reason = "Host 도시 파산 (피해량 2000 초과)"; }
+            else if(guestDmg >= guestMaxHp) { winner = "Host"; reason = "Guest 도시 파산 (피해량 2000 초과)"; }
+            else if(gameData.turnCount > 20) { // 20턴 제한 (밸런스)
+                if(hostDmg < guestDmg) { winner = "Host"; reason = "20턴 초과! 피해량 적은 Host 승리"; }
+                else if(guestDmg < hostDmg) { winner = "Guest"; reason = "20턴 초과! 피해량 적은 Guest 승리"; }
+                else { winner = "Draw"; reason = "20턴 초과! 동점 무승부"; }
             }
 
             if(winner) {
@@ -527,6 +602,3 @@
     </script>
 </body>
 </html>
-
-
-
