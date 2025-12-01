@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>재난 관리 카드 게임 (Online Final Production)</title>
     <style>
-        /* CSS 스타일은 사용자님의 최종 버전을 기반으로 유지됩니다. */
+        /* CSS 스타일은 최종 오프라인 버전을 기반으로 유지됩니다. */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
         
-        /* 0. 인트로 화면 (로비 기능으로 대체) */
+        /* 0. 인트로 화면 (추가됨) */
         #intro-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
@@ -315,16 +315,12 @@
                 }
             };
             
+            // **[수정] 재난 카드 추가 로직 복원**
             // 재난 4세트
-            DISASTER_DATA_CLASS.forEach(d => add(d));
-            DISASTER_DATA_CLASS.forEach(d => add(d));
-            DISASTER_DATA_CLASS.forEach(d => add(d));
-            DISASTER_DATA_CLASS.forEach(d => add(d));
+            for (let i=0; i<4; i++) DISASTER_DATA_CLASS.forEach(d => add(d));
 
             // 특정 방재 3세트
-            SPECIFIC_MITIGATION_DATA_CLASS.forEach(m => add(m));
-            SPECIFIC_MITIGATION_DATA_CLASS.forEach(m => add(m));
-            SPECIFIC_MITIGATION_DATA_CLASS.forEach(m => add(m));
+            for (let i=0; i<3; i++) SPECIFIC_MITIGATION_DATA_CLASS.forEach(m => add(m));
             
             // 범용 방재 1세트
             GENERAL_MITIGATION_DATA_CLASS.forEach(g => add(g));
@@ -511,7 +507,7 @@
             renderHand(document.getElementById('my-hand'), myData.hand || [], false);
             renderHand(document.getElementById('opp-hand'), oppData.hand || [], true);
             renderField(document.getElementById('my-field'), myData.field || []);
-            renderField(document.getElementById('opp-field'), oppData.field || []);
+            renderField(document.getElementById('opponent-field'), oppData.field || []); // opp-field ID 수정됨
 
             // 5. 버튼 상태 업데이트
             const cardsToPlay = selectedCards();
@@ -519,6 +515,7 @@
             const myHp = myData.hp; 
             const isPlaying = gameData.status === 'playing'; // 플레이 중일 때만 버튼 활성화
             
+            // 카드 클릭 안 되는 문제 해결: isPlaying 상태를 체크
             document.getElementById('play-btn').disabled = !isMyTurn || myData.ap < cardsToPlay.length || !hasSelected || !isPlaying;
             document.getElementById('draw-btn').disabled = !isMyTurn || myData.ap < 1 || hasSelected || !isPlaying;
             document.getElementById('recover-btn').disabled = !isMyTurn || myData.ap < 1 || myHp <= 0 || !isPlaying;
@@ -698,7 +695,7 @@
                 let totalDmg = 0;
                 let damageLog = [];
 
-                // **[수정] 재난 콤보 및 단일 공격 처리**
+                // **[재난 콤보 및 단일 공격 처리]**
                 if (disasters.length === 2 && disasters[0].dType === disasters[1].dType) {
                     let baseDmgSum = disasters.reduce((sum, d) => sum + d.dmg, 0);
                     if(evt.type === 'attack_buff') baseDmgSum = Math.floor(baseDmgSum * evt.val);
