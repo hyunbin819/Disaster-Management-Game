@@ -48,7 +48,7 @@
         .val-bad { color: #ff6b6b; font-weight: bold; }
         .val-good { color: #51cf66; font-weight: bold; }
 
-        /* 2. 뉴스 속보 모달 (수정됨: 팝업 역할) */
+        /* 2. 뉴스 속보 모달 */
         #news-modal {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background-color: rgba(0, 0, 0, 0.85); z-index: 6000; /* Z-index 높임 */
@@ -478,15 +478,8 @@
             const newsDescEl = document.getElementById('news-desc');
             const newsBadgeEl = document.getElementById('news-badge');
             
-            // **[수정 1] 뉴스 모달 팝업 제어:** 턴이 바뀔 때만 모달 팝업을 띄웁니다.
-            const isFirstLoad = gameData.turnCount === 1 && myData.ap === 2; // 첫 턴 시작 시
-            if (isMyTurn && gameData.status !== 'news_shown' && newsModal) {
-                 // Guest는 Host의 시작 버튼을 기다림
-                if (myRole === 'guest' && gameData.turnCount === 1) {
-                    document.getElementById('active-news-ticker').innerHTML = `📰 뉴스: Host가 턴을 시작해야 합니다.`;
-                    return;
-                }
-                
+            // **[수정 1: 뉴스 팝업 제어]** 턴 시작 시에만 팝업을 띄우고 상태를 기록합니다.
+            if (isMyTurn && gameData.status === 'waiting_for_news' && newsModal) {
                 // 모달 내용 업데이트
                 if (newsTitleEl) newsTitleEl.innerText = evt.name;
                 if (newsDescEl) newsDescEl.innerHTML = evt.desc;
@@ -497,16 +490,17 @@
                 
                 // 모달 띄우기
                 newsModal.style.display = 'flex';
-                // DB에 모달 표시 상태를 기록하여 상대방에게는 팝업이 뜨지 않게 합니다.
-                update(ref(db, `rooms/${roomId}`), { status: 'news_shown' });
+                // DB에 상태를 '뉴스 확인 중'으로 기록하여 다른 클라이언트에게 팝업이 뜨는 것을 막습니다.
+                update(ref(db, `rooms/${roomId}`), { status: 'news_shown' }); 
+            }
+            
+            // 3. 내/상대 상태 업데이트 (Weakness 표시 포함)
+            // 3-1. Host는 첫 턴에 'playing' 상태이므로, 'waiting_for_news'가 아닐 때만 뉴스 티커 업데이트
+            if (gameData.status === 'playing' || gameData.status === 'news_shown') {
+                 document.getElementById('active-news-ticker').innerHTML = `📰 오늘의 뉴스: <b class="${evt.bg ? 'bg-'+evt.bg : ''}">${evt.name}</b> (${evt.desc})`;
             }
 
-            // 팝업 닫힌 후 메인 화면 뉴스 티커 업데이트
-            document.getElementById('active-news-ticker').innerHTML = `📰 오늘의 뉴스: <b class="${evt.bg ? 'bg-'+evt.bg : ''}">${evt.name}</b> (${evt.desc})`;
-
-
-            // 3. 내/상대 상태 업데이트
-            // **[수정 2] 상대방 도시 취약점 정보 표시**
+            // 3-2. 상태 값 및 취약점 표시 (Fix: 상대방 취약점 노출)
             if (elMyCity) elMyCity.innerHTML = `${myData.city.name} <span class="weakness-highlight">(${myData.city.weakText})</span>`;
             if (elOppCity) elOppCity.innerHTML = `${oppData.city.name} <span class="weakness-highlight">(${oppData.city.weakText})</span>`; // 상대방 취약점 노출
             
@@ -528,10 +522,10 @@
             const hasSelected = cardsToPlay.length > 0;
             const myHp = myData.hp; 
             
-            document.getElementById('play-btn').disabled = !isMyTurn || myData.ap < cardsToPlay.length || !hasSelected;
-            document.getElementById('draw-btn').disabled = !isMyTurn || myData.ap < 1 || hasSelected;
-            document.getElementById('recover-btn').disabled = !isMyTurn || myData.ap < 1 || myHp <= 0;
-            document.getElementById('end-btn').disabled = !isMyTurn;
+            document.getElementById('play-btn').disabled = !isMyTurn || myData.ap < cardsToPlay.length || !hasSelected || gameData.status !== 'playing';
+            document.getElementById('draw-btn').disabled = !isMyTurn || myData.ap < 1 || hasSelected || gameData.status !== 'playing';
+            document.getElementById('recover-btn').disabled = !isMyTurn || myData.ap < 1 || myHp <= 0 || gameData.status !== 'playing';
+            document.getElementById('end-btn').disabled = !isMyTurn || gameData.status !== 'playing';
             document.getElementById('play-btn').innerText = `카드 사용 (${cardsToPlay.length} AP)`;
 
             // 6. 로그 (로그 배열 길이로 업데이트 확인)
@@ -584,7 +578,7 @@
         }
 
         function toggleSelect(id) {
-            if(gameData.turn !== myRole) return;
+            if(gameData.turn !== myRole || gameData.status !== 'playing') return; // 게임 중이 아닐 때 선택 방지
             
             if(selectedCardIds.includes(id)) {
                 selectedCardIds = selectedCardIds.filter(x => x !== id);
@@ -598,8 +592,10 @@
 
         // 뉴스 모달 확인 버튼 (Confirm News)
         document.getElementById('confirm-news-btn').addEventListener('click', async () => {
-             document.getElementById('news-modal').style.display = 'none';
-             if (gameData.status === 'news_shown') {
+             document.getElementById('news-modal').style.display = 'none'; // **모달은 즉시 닫습니다.**
+             
+             // 턴이 내 차례이고, 뉴스 확인 대기 상태일 때만 DB를 업데이트하여 게임을 진행시킵니다.
+             if (gameData.status === 'news_shown' && gameData.turn === myRole) { 
                 await update(ref(db, `rooms/${roomId}`), { status: 'playing' });
              }
         });
@@ -675,7 +671,7 @@
             const evt = gameData.currentEvent;
             
             const mitigations = cardsToPlay.filter(c => c.type !== 'disaster');
-            const disasters = cardsToPlay.filter(c => c.type === 'disaster');
+            const disasters = cardsToPlay.filter(c => c.type !== 'mitigation' && c.type !== 'general');
 
             mitigations.forEach(c => {
                 let cost = c.cost;
@@ -705,30 +701,46 @@
                 let totalDmg = 0;
                 let damageLog = [];
 
-                disasters.forEach(d => {
-                    let dmg = d.dmg;
-                    let defenseLog = "";
-
-                    // A. 공격력 계산 (이벤트 및 상성)
-                    if(evt.type === 'attack_buff') dmg = Math.floor(dmg * evt.val);
-                    if(d.dType === gameData[oppRole].city.weakType) { 
-                        dmg = Math.floor(dmg * 1.5); 
-                        defenseLog += `[약점공략!] `;
-                    }
+                // **[수정] 콤보 구현: 두 장의 같은 재난 카드를 냈을 때 2배의 피해를 주는 콤보 로직 추가**
+                if (disasters.length === 2 && disasters[0].dType === disasters[1].dType) {
+                    let baseDmgSum = disasters.reduce((sum, d) => sum + d.dmg, 0);
+                    if(evt.type === 'attack_buff') baseDmgSum = Math.floor(baseDmgSum * evt.val);
                     
-                    // B. 방어 계산 (콤보 계산 헬퍼 사용)
-                    const mitigationPower = calculateMitigationPowerOnline(oppField, d);
+                    let comboDmg = baseDmgSum * 2;
+                    let mitigationPower = calculateMitigationPowerOnline(oppField, disasters[0]); // 대표 카드로 방어력 계산
+                    
+                    if(disasters[0].dType === gameData[oppRole].city.weakType) { 
+                        comboDmg = Math.floor(comboDmg * 1.5); 
+                    }
 
-                    const finalDmg = Math.max(0, dmg - mitigationPower);
+                    const finalDmg = Math.max(0, comboDmg - mitigationPower);
                     totalDmg += finalDmg;
                     
-                    damageLog.push(`${d.name}: ${dmg} 공격 - ${mitigationPower} 방어 = ${finalDmg} 피해`);
-                });
+                    logMsg += `[재난 콤보 발동!] ${disasters[0].dType} 연쇄 발생! 총 피해 <b>${finalDmg}</b>. `;
+
+                } else if (disasters.length > 0) {
+                     // 단일 재난 카드 처리
+                     disasters.forEach(d => {
+                        let dmg = d.dmg;
+
+                        // A. 공격력 계산 (이벤트 및 상성)
+                        if(evt.type === 'attack_buff') dmg = Math.floor(dmg * evt.val);
+                        if(d.dType === gameData[oppRole].city.weakType) { 
+                            dmg = Math.floor(dmg * 1.5); 
+                        }
+                        
+                        // B. 방어 계산 (콤보 계산 헬퍼 사용)
+                        const mitigationPower = calculateMitigationPowerOnline(oppField, d);
+
+                        const finalDmg = Math.max(0, dmg - mitigationPower);
+                        totalDmg += finalDmg;
+                        damageLog.push(`${d.name}: ${finalDmg} 피해`);
+                    });
+                     logMsg += `${myRole}가 재난으로 총 <b>${totalDmg}</b>의 피해를 입혔습니다! (${damageLog.join(', ')}) `;
+                }
                 
                 oppHp += totalDmg;
                 updates[`rooms/${roomId}/${oppRole}/hp`] = oppHp;
-                
-                logMsg += `${myRole}가 재난으로 총 <b>${totalDmg}</b>의 피해를 입혔습니다! `;
             }
 
             // 5. 자원 차감 및 핸드 정리
@@ -781,7 +793,7 @@
             updates[`rooms/${roomId}/turn`] = nextTurn;
             updates[`rooms/${roomId}/turnCount`] = gameData.turnCount + 1;
             updates[`rooms/${roomId}/currentEvent`] = nextEvent;
-            updates[`rooms/${roomId}/status`] = 'waiting_for_news'; // 뉴스 모달을 띄우기 위한 상태 전환
+            updates[`rooms/${roomId}/status`] = 'waiting_for_news'; // **다음 턴 플레이어에게 모달 팝업을 띄우기 위한 상태 전환**
 
             await update(ref(db), updates);
         });
