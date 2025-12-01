@@ -396,7 +396,7 @@
                 const guestCity = CITY_TYPES[Math.floor(Math.random()*3)];
 
                 const initialState = {
-                    status: 'playing',
+                    status: 'waiting_for_news', // 첫 턴 시작은 뉴스 확인부터
                     turn: 'host',
                     turnCount: 1,
                     currentEvent: EVENTS[0],
@@ -472,7 +472,7 @@
                 document.getElementById('my-area').classList.toggle('active-turn', isMyTurn);
             }
 
-            // 2. 뉴스 (모달 팝업 처리를 위해 JS에서 제어)
+            // 2. 뉴스 (모달 팝업 제어)
             const newsModal = document.getElementById('news-modal');
             const newsTitleEl = document.getElementById('news-title');
             const newsDescEl = document.getElementById('news-desc');
@@ -490,17 +490,15 @@
                 
                 // 모달 띄우기
                 newsModal.style.display = 'flex';
-                // DB에 상태를 '뉴스 확인 중'으로 기록하여 다른 클라이언트에게 팝업이 뜨는 것을 막습니다.
-                update(ref(db, `rooms/${roomId}`), { status: 'news_shown' }); 
+            } else if (newsModal) {
+                 // 게임 상태가 'playing'이거나 내 턴이 아닐 때는 모달을 닫습니다.
+                newsModal.style.display = 'none'; 
             }
             
             // 3. 내/상대 상태 업데이트 (Weakness 표시 포함)
-            // 3-1. Host는 첫 턴에 'playing' 상태이므로, 'waiting_for_news'가 아닐 때만 뉴스 티커 업데이트
-            if (gameData.status === 'playing' || gameData.status === 'news_shown') {
-                 document.getElementById('active-news-ticker').innerHTML = `📰 오늘의 뉴스: <b class="${evt.bg ? 'bg-'+evt.bg : ''}">${evt.name}</b> (${evt.desc})`;
-            }
+            document.getElementById('active-news-ticker').innerHTML = `📰 오늘의 뉴스: <b class="${evt.bg ? 'bg-'+evt.bg : ''}">${evt.name}</b> (${evt.desc})`;
 
-            // 3-2. 상태 값 및 취약점 표시 (Fix: 상대방 취약점 노출)
+            // Fix: 상대방 취약점 노출 (HTML ID와 매칭 확인 완료)
             if (elMyCity) elMyCity.innerHTML = `${myData.city.name} <span class="weakness-highlight">(${myData.city.weakText})</span>`;
             if (elOppCity) elOppCity.innerHTML = `${oppData.city.name} <span class="weakness-highlight">(${oppData.city.weakText})</span>`; // 상대방 취약점 노출
             
@@ -521,11 +519,12 @@
             const cardsToPlay = selectedCards();
             const hasSelected = cardsToPlay.length > 0;
             const myHp = myData.hp; 
+            const isPlaying = gameData.status === 'playing'; // 플레이 중일 때만 버튼 활성화
             
-            document.getElementById('play-btn').disabled = !isMyTurn || myData.ap < cardsToPlay.length || !hasSelected || gameData.status !== 'playing';
-            document.getElementById('draw-btn').disabled = !isMyTurn || myData.ap < 1 || hasSelected || gameData.status !== 'playing';
-            document.getElementById('recover-btn').disabled = !isMyTurn || myData.ap < 1 || myHp <= 0 || gameData.status !== 'playing';
-            document.getElementById('end-btn').disabled = !isMyTurn || gameData.status !== 'playing';
+            document.getElementById('play-btn').disabled = !isMyTurn || myData.ap < cardsToPlay.length || !hasSelected || !isPlaying;
+            document.getElementById('draw-btn').disabled = !isMyTurn || myData.ap < 1 || hasSelected || !isPlaying;
+            document.getElementById('recover-btn').disabled = !isMyTurn || myData.ap < 1 || myHp <= 0 || !isPlaying;
+            document.getElementById('end-btn').disabled = !isMyTurn || !isPlaying;
             document.getElementById('play-btn').innerText = `카드 사용 (${cardsToPlay.length} AP)`;
 
             // 6. 로그 (로그 배열 길이로 업데이트 확인)
@@ -595,8 +594,8 @@
              document.getElementById('news-modal').style.display = 'none'; // **모달은 즉시 닫습니다.**
              
              // 턴이 내 차례이고, 뉴스 확인 대기 상태일 때만 DB를 업데이트하여 게임을 진행시킵니다.
-             if (gameData.status === 'news_shown' && gameData.turn === myRole) { 
-                await update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+             if (gameData.status === 'waiting_for_news' && gameData.turn === myRole) { 
+                await update(ref(db, `rooms/${roomId}`), { status: 'playing' }); 
              }
         });
 
