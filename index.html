@@ -8,7 +8,7 @@
         /* CSS 스타일은 최종 오프라인 버전을 기반으로 유지됩니다. */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
         
-        /* 0. 인트로/로비 화면 */
+        /* 0. 인트로 화면 (추가됨) */
         #intro-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
@@ -34,11 +34,13 @@
             display: none; 
             flex-direction: column; justify-content: center; align-items: center; text-align: center;
         }
+        #turn-overlay h1 { font-size: 3em; margin-bottom: 20px; }
+        #turn-overlay p { font-size: 1.5em; margin-bottom: 40px; color: #ccc; }
+        #start-turn-btn { font-size: 1.5em; padding: 15px 40px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 8px; transition: transform 0.2s; }
+        #start-turn-btn:hover { transform: scale(1.05); background-color: #0056b3; }
 
         /* 결과 요약 테이블 스타일 */
-        .summary-box { 
-            background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 15px; margin-bottom: 30px; min-width: 300px; text-align: left; 
-        }
+        .summary-box { background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 15px; margin-bottom: 30px; min-width: 300px; text-align: left; }
         .summary-table { width: 100%; border-collapse: collapse; color: white; font-size: 1.1em; }
         .summary-table th, .summary-table td { padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); }
         .summary-table th { color: #aaa; font-weight: normal; font-size: 0.9em; }
@@ -92,7 +94,7 @@
         #play-btn { background-color: #28a745; grid-column: span 2; }
         #draw-btn { background-color: #007bff; }
         #recover-btn { background-color: #ffc107; color: #212529; }
-        #end-btn { background-color: #dc3545; }
+        #end-btn { background-color: #dc3545; grid-column: span 4; margin-top: 10px; }
 
         #message-log { margin-top: 20px; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; height: 150px; overflow-y: auto; font-size: 0.9em; }
     </style>
@@ -103,12 +105,15 @@
         <div class="intro-box">
             <h1>🌪️ 재난 카드 게임 Online</h1>
             <p>
-                당신은 도시 방재 담당관입니다. 아래에 방 이름을 입력하고 친구와 연결하세요.
-                <div style="font-size:0.8em; color:#666; margin-top:5px;">(Host가 방을 만들면, Guest는 같은 이름으로 참가)</div>
+                당신은 도시 방재 담당관입니다. 한정된 예산으로 재난을 관리하세요.
+                <div style="font-size:1.1em; color:#d32f2f; margin:15px 0 20px;">
+                    💡 **핵심 전략:** 상대 도시의 취약 재난으로 공격하세요! (피해 1.5배)
+                </div>
             </p>
             <input type="text" id="room-input" class="intro-input" placeholder="방 이름 (예: myroom)">
             <button id="create-btn" class="intro-btn">방 만들기 (Host)</button>
             <button id="join-btn" class="intro-btn">방 참가하기 (Guest)</button>
+            <p style="font-size:0.8em; color:#666; margin-top:20px;">*같은 방 이름을 입력해야 만날 수 있습니다. Host가 게임을 시작해야 Guest가 접속됩니다.</p>
         </div>
     </div>
 
@@ -418,6 +423,7 @@
         }
 
         function connectGame() {
+            // [수정: 로비 화면 전환 로직]
             introScreen.style.display = 'none';
             document.getElementById('game-container').style.display = 'block';
             document.getElementById('turn-indicator').style.display = 'block';
@@ -506,7 +512,7 @@
             renderHand(document.getElementById('my-hand'), myData.hand || [], false);
             renderHand(document.getElementById('opp-hand'), oppData.hand || [], true);
             renderField(document.getElementById('my-field'), myData.field || []);
-            renderField(document.getElementById('opponent-field'), oppData.field || []);
+            renderField(document.getElementById('opponent-field'), oppData.field || []); // opp-field ID 수정됨
 
             // 5. 버튼 상태 업데이트
             const cardsToPlay = selectedCards();
