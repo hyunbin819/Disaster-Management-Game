@@ -3,79 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>재난 관리 카드 게임 (Online Multiplayer)</title>
+    <title>재난 관리 카드 게임 (Online Full Version)</title>
     <style>
-        /* 기존 스타일 유지 + 로비 스타일 추가 */
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        
-        /* 로비 화면 (방 만들기/참가) */
-        #lobby-screen {
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
+
+        /* === 1. 로비 & 인트로 스타일 === */
+        #intro-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: #1e3c72; color: white; z-index: 9999;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white; z-index: 5000;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
-        .lobby-box { background: white; color: #333; padding: 40px; border-radius: 15px; text-align: center; width: 300px; }
-        .lobby-box input { width: 100%; padding: 10px; margin: 10px 0; font-size: 1.2em; text-align: center; }
-        .lobby-btn { width: 100%; padding: 15px; margin: 5px 0; font-size: 1.1em; cursor: pointer; border: none; border-radius: 5px; color: white; }
-        #create-room-btn { background-color: #28a745; }
-        #join-room-btn { background-color: #007bff; }
+        .intro-box {
+            background-color: rgba(255, 255, 255, 0.95); color: #333;
+            padding: 40px; border-radius: 20px; text-align: center;
+            width: 90%; max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .intro-input { width: 80%; padding: 15px; font-size: 1.2em; margin: 10px 0; border: 2px solid #ddd; border-radius: 8px; text-align: center; }
+        .intro-btn { width: 90%; padding: 15px; font-size: 1.2em; margin: 5px 0; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
+        #create-btn { background-color: #28a745; }
+        #join-btn { background-color: #007bff; }
+        .intro-btn:hover { transform: scale(1.05); filter: brightness(1.1); }
 
-        /* 게임 화면 등 기존 스타일 */
-        #game-container { display: none; max-width: 1000px; margin: 0 auto; background-color: #f0f2f5; padding: 20px; border-radius: 15px; }
-        .player-area { border: 2px solid #ccc; border-radius: 10px; padding: 20px; margin-bottom: 20px; background-color: #fff; }
-        .player-area.active-turn { border: 3px solid #007bff; box-shadow: 0 0 15px rgba(0,123,255,0.3); }
+        /* === 2. 게임 화면 스타일 === */
+        #game-container { display: none; max-width: 1000px; margin: 20px auto; background-color: #f0f2f5; padding: 20px; border-radius: 15px; }
+        
+        .active-turn-indicator {
+            position: fixed; top: 0; left: 0; width: 100%; padding: 10px;
+            text-align: center; color: white; font-weight: bold; font-size: 1.2em; z-index: 1000;
+        }
+        .turn-my { background-color: #007bff; }
+        .turn-opp { background-color: #dc3545; }
+
+        .player-area { border: 2px solid #ccc; border-radius: 10px; padding: 20px; margin-bottom: 20px; background-color: #fff; position: relative; }
+        .player-area.active-turn { border: 4px solid #007bff; box-shadow: 0 0 20px rgba(0,123,255,0.2); }
+        
         .status-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-        .card-container { display: flex; flex-wrap: wrap; gap: 10px; min-height: 120px; background: #f8f9fa; padding: 10px; border-radius: 8px; }
-        .card { width: 100px; height: 140px; background: white; border: 1px solid #ddd; border-radius: 8px; padding: 5px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; font-size: 0.8em; }
-        .card:hover { transform: translateY(-5px); }
-        .card.selected { border: 3px solid #007bff; background: #e3f2fd; }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        button { padding: 10px; cursor: pointer; font-size: 1em; }
-        #message-log { height: 100px; overflow-y: scroll; background: white; border: 1px solid #ddd; padding: 10px; margin-top: 10px; }
-        .waiting-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); color:white; display:flex; justify-content:center; align-items:center; font-size:2em; z-index:100; display:none; }
+        .city-badge { font-size: 0.8em; background-color: #495057; color: white; padding: 5px 10px; border-radius: 15px; margin-left: 10px; }
+        .weakness { color: #ff6b6b; font-weight: bold; font-size: 0.9em; }
+
+        .card-container { display: flex; flex-wrap: wrap; gap: 10px; min-height: 140px; background: #f8f9fa; padding: 15px; border-radius: 8px; }
+        .card {
+            width: 100px; height: 150px; background: white; border: 2px solid #ddd; border-radius: 8px; 
+            padding: 5px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; 
+            font-size: 0.85em; user-select: none; transition: transform 0.1s;
+        }
+        .card:hover { transform: translateY(-5px); z-index: 10; }
+        .card.selected { border: 3px solid #007bff !important; background-color: #e3f2fd !important; transform: scale(1.05); }
+        
+        .card.type-disaster { border-left: 5px solid #dc3545; }
+        .card.type-mitigation { border-left: 5px solid #28a745; }
+        .card.type-general { border-left: 5px solid #ffc107; }
+
+        /* 뒷면 카드 (상대방) */
+        .card.hidden { background: #555; border: 2px solid #444; justify-content: center; align-items: center; }
+        .card.hidden::after { content: "CARD"; color: #888; font-weight: bold; }
+        .card.hidden * { display: none; }
+
+        #controls { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .control-btn { padding: 15px; font-size: 1em; font-weight: bold; border: none; border-radius: 8px; color: white; cursor: pointer; }
+        .control-btn:disabled { background-color: #ccc !important; cursor: not-allowed; }
+        #play-btn { background-color: #28a745; grid-column: span 2; }
+        #draw-btn { background-color: #007bff; }
+        #end-btn { background-color: #dc3545; }
+
+        #active-news-ticker { background: #fff3cd; color: #856404; padding: 10px; text-align: center; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }
+        
+        #message-log { height: 150px; overflow-y: scroll; background: white; border: 1px solid #ddd; padding: 10px; margin-top: 20px; font-size: 0.9em; border-radius: 8px; }
+        .log-sys { color: #666; font-style: italic; }
+        .log-atk { color: #d32f2f; font-weight: bold; }
+        .log-def { color: #28a745; font-weight: bold; }
+
+        /* 결과 화면 */
+        #result-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.9); z-index: 6000; color: white;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .result-box { background: #333; padding: 40px; border-radius: 20px; text-align: center; border: 2px solid gold; }
     </style>
 </head>
 <body>
 
-    <div id="lobby-screen">
-        <div class="lobby-box">
-            <h1>재난 카드 게임</h1>
-            <p>온라인 멀티플레이</p>
-            <input type="text" id="room-id-input" placeholder="방 이름 입력 (예: room1)">
-            <button id="create-room-btn" class="lobby-btn">방 만들기 (방장)</button>
-            <button id="join-room-btn" class="lobby-btn">방 참가하기 (도전자)</button>
+    <div id="intro-screen">
+        <div class="intro-box">
+            <h1>🌪️ 재난 카드 게임 Online</h1>
+            <p>방 이름을 입력하여 친구와 연결하세요.</p>
+            <input type="text" id="room-input" class="intro-input" placeholder="방 이름 (예: myroom)">
+            <button id="create-btn" class="intro-btn">방 만들기 (Host)</button>
+            <button id="join-btn" class="intro-btn">방 참가하기 (Guest)</button>
+            <p style="font-size:0.8em; color:#666; margin-top:20px;">*같은 방 이름을 입력해야 만날 수 있습니다.</p>
         </div>
     </div>
 
+    <div id="turn-indicator" class="active-turn-indicator" style="display:none;">게임 대기 중...</div>
+
     <div id="game-container">
-        <div id="waiting-msg" class="waiting-overlay">상대방을 기다리는 중...</div>
         
-        <div class="player-area" id="opponent-area">
+        <div id="active-news-ticker">📰 뉴스: 게임 시작 대기 중...</div>
+
+        <div id="opponent-area" class="player-area">
             <div class="status-bar">
-                <h3>상대방 (<span id="opp-role">Guest</span>)</h3>
-                <div>체력: <span id="opp-hp">2000</span> | 돈: <span id="opp-money">1000</span></div>
+                <div>
+                    <span style="font-size:1.5em; font-weight:bold;">👤 상대방</span>
+                    <span id="opp-city" class="city-badge">도시 정보</span>
+                </div>
+                <div style="text-align:right;">
+                    <div>💔 피해: <span id="opp-damage" style="color:#dc3545; font-weight:bold;">0</span></div>
+                    <div>💰 예산: <span id="opp-money" style="color:#28a745; font-weight:bold;">0</span></div>
+                </div>
             </div>
-            <div id="opp-hand" class="card-container" style="background:#ddd;">카드 뒷면만 보임</div>
+            <div class="area-title" style="font-size:0.9em; color:#666;">상대방 설치 시설</div>
+            <div id="opp-field" class="card-container" style="min-height:100px; margin-bottom:10px;"></div>
+            <div class="area-title" style="font-size:0.9em; color:#666;">상대방 손패</div>
+            <div id="opp-hand" class="card-container" style="background:#e9ecef;"></div>
         </div>
 
-        <div class="player-area active-turn" id="my-area">
+        <div id="my-area" class="player-area">
             <div class="status-bar">
-                <h3>나 (<span id="my-role">Host</span>)</h3>
-                <div>체력: <span id="my-hp">2000</span> | 돈: <span id="my-money">1000</span></div>
+                <div>
+                    <span style="font-size:1.5em; font-weight:bold; color:#007bff;">ME 나</span>
+                    <span id="my-city" class="city-badge">도시 정보</span>
+                </div>
+                <div style="text-align:right;">
+                    <div>⚡ AP: <span id="my-ap" style="color:#007bff; font-weight:bold;">0</span></div>
+                    <div>💔 피해: <span id="my-damage" style="color:#dc3545; font-weight:bold;">0</span></div>
+                    <div>💰 예산: <span id="my-money" style="color:#28a745; font-weight:bold;">0</span></div>
+                </div>
             </div>
+            <div class="area-title" style="font-size:0.9em; color:#666;">내 설치 시설</div>
+            <div id="my-field" class="card-container" style="min-height:100px; margin-bottom:10px;"></div>
+            <div class="area-title" style="font-size:0.9em; color:#666;">내 손패 (클릭하여 선택)</div>
             <div id="my-hand" class="card-container"></div>
         </div>
 
-        <div class="controls">
-            <button id="atk-btn" onclick="attack()">공격 테스트 (10 데미지)</button>
-            <button id="turn-end-btn" onclick="endTurn()">턴 넘기기</button>
+        <div id="controls">
+            <button id="play-btn" class="control-btn">카드 사용 (1 AP)</button>
+            <button id="draw-btn" class="control-btn">카드 뽑기 (1 AP)</button>
+            <button id="end-btn" class="control-btn">턴 종료</button>
         </div>
+
         <div id="message-log"></div>
+    </div>
+
+    <div id="result-modal">
+        <div class="result-box">
+            <h1 id="result-title">게임 종료</h1>
+            <p id="result-desc"></p>
+            <button onclick="location.reload()" style="padding:10px 30px; margin-top:20px; cursor:pointer;">로비로 돌아가기</button>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update } 
+        import { getDatabase, ref, set, onValue, update, get } 
         from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         // ============================================================
@@ -92,123 +174,354 @@
         };
         // ============================================================
 
-        // Firebase 초기화
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 게임 상태 변수
+        // --- 게임 데이터 상수 ---
+        const DisasterType = { WINTER: "겨울철 재난", WIND_FLOOD: "풍수해", MOUNTAIN: "산악 재난" };
+        const MitigationPhase = { PREVENTION: "예방", PREPAREDNESS: "준비", GENERAL: "범용" };
+        
+        const CITY_TYPES = [
+            { name: "🌊 해안 도시", weakType: DisasterType.WIND_FLOOD, weakText: "풍수해 취약" },
+            { name: "🏚️ 노후 도심", weakType: DisasterType.WINTER, weakText: "겨울철 취약" },
+            { name: "⛰️ 산간 지역", weakType: DisasterType.MOUNTAIN, weakText: "산악 취약" }
+        ];
+
+        const EVENTS = [
+            { id: 'normal', name: "☀️ 평온한 날", desc: "특이 사항 없음", type: "normal", val: 0 },
+            { id: 'climate', name: "⚠️ 기후 이상", desc: "재난 공격력 1.5배", type: "attack_buff", val: 1.5 },
+            { id: 'inflation', name: "💸 물가 상승", desc: "시설 비용 +50", type: "cost_up", val: 50 },
+            { id: 'tech', name: "💡 기술 혁신", desc: "시설 비용 -50", type: "cost_down", val: 50 },
+        ];
+
+        // --- 전역 변수 ---
         let roomId = "";
-        let myRole = ""; // 'host' (방장) or 'guest' (참가자)
-        let isMyTurn = false;
-        let gameState = {
-            turn: 'host', // 누구 턴인지
-            host: { hp: 2000, money: 1000 },
-            guest: { hp: 2000, money: 1000 },
-            log: "게임 대기 중..."
-        };
+        let myRole = ""; // 'host' or 'guest'
+        let gameData = null;
+        let selectedCardIds = [];
 
-        // DOM 요소
-        const lobbyScreen = document.getElementById('lobby-screen');
-        const gameContainer = document.getElementById('game-container');
-        const roomInput = document.getElementById('room-id-input');
-        const msgLog = document.getElementById('message-log');
-
-        // 1. 방 만들기 (Host)
-        document.getElementById('create-room-btn').addEventListener('click', () => {
-            roomId = roomInput.value;
-            if(!roomId) return alert("방 이름을 입력하세요!");
+        // --- 카드 생성 함수들 ---
+        function createDeck() {
+            let cards = [];
+            const add = (c) => cards.push({...c, id: `c_${Date.now()}_${Math.random().toString(36).substr(2,9)}`});
             
-            myRole = 'host';
-            document.getElementById('my-role').innerText = "Host (나)";
-            document.getElementById('opp-role').innerText = "Guest (상대)";
-            
-            // DB에 방 초기화
-            set(ref(db, 'rooms/' + roomId), gameState);
-            
-            startGameUI();
-        });
+            // 재난 (4세트)
+            const disasters = [
+                {name:"대설", type:"disaster", dType:DisasterType.WINTER, dmg:50},
+                {name:"한파", type:"disaster", dType:DisasterType.WINTER, dmg:50},
+                {name:"폭우", type:"disaster", dType:DisasterType.WIND_FLOOD, dmg:50},
+                {name:"태풍", type:"disaster", dType:DisasterType.WIND_FLOOD, dmg:50},
+                {name:"산불", type:"disaster", dType:DisasterType.MOUNTAIN, dmg:50},
+                {name:"산사태", type:"disaster", dType:DisasterType.MOUNTAIN, dmg:50}
+            ];
+            for(let i=0; i<4; i++) disasters.forEach(d => add(d));
 
-        // 2. 방 참가하기 (Guest)
-        document.getElementById('join-room-btn').addEventListener('click', () => {
-            roomId = roomInput.value;
-            if(!roomId) return alert("방 이름을 입력하세요!");
-
-            myRole = 'guest';
-            document.getElementById('my-role').innerText = "Guest (나)";
-            document.getElementById('opp-role').innerText = "Host (상대)";
+            // 방재 (3세트)
+            const mitigations = [
+                {name:"도로 열선", type:"mitigation", subType:"specific", target:"대설", phase:MitigationPhase.PREVENTION, cost:200, power:150},
+                {name:"제설 장비", type:"mitigation", subType:"specific", target:"대설", phase:MitigationPhase.PREPAREDNESS, cost:50, power:30},
+                {name:"방파제 보강", type:"mitigation", subType:"specific", target:"태풍", phase:MitigationPhase.PREVENTION, cost:200, power:150},
+                {name:"창문 보강", type:"mitigation", subType:"specific", target:"태풍", phase:MitigationPhase.PREPAREDNESS, cost:50, power:30},
+                {name:"방화선 구축", type:"mitigation", subType:"specific", target:"산불", phase:MitigationPhase.PREVENTION, cost:200, power:150},
+                {name:"입산 통제", type:"mitigation", subType:"specific", target:"산불", phase:MitigationPhase.PREPAREDNESS, cost:50, power:30},
+                // ... (분량상 핵심 카드 위주로 구성, 실제로는 더 추가 가능)
+            ];
+            for(let i=0; i<3; i++) mitigations.forEach(m => add(m));
             
-            startGameUI();
-        });
+            // 범용 (1세트)
+            add({name:"통합 시스템", type:"general", cost:150, power:80});
+            add({name:"안전 교육", type:"general", cost:100, power:50});
 
-        function startGameUI() {
-            lobbyScreen.style.display = 'none';
-            gameContainer.style.display = 'block';
-            listenGameData(); // 데이터 동기화 시작
+            // 셔플
+            return cards.sort(() => Math.random() - 0.5);
         }
 
-        // 3. 데이터 동기화 (핵심 로직)
-        function listenGameData() {
-            const roomRef = ref(db, 'rooms/' + roomId);
-            
-            onValue(roomRef, (snapshot) => {
-                const data = snapshot.val();
-                if (!data) return; // 데이터 없음
+        // --- 로비 로직 ---
+        const introScreen = document.getElementById('intro-screen');
+        const roomInput = document.getElementById('room-input');
 
-                // 화면 업데이트
-                document.getElementById('my-hp').innerText = data[myRole].hp;
-                document.getElementById('my-money').innerText = data[myRole].money;
-                
-                const oppRole = (myRole === 'host') ? 'guest' : 'host';
-                document.getElementById('opp-hp').innerText = data[oppRole].hp;
-                document.getElementById('opp-money').innerText = data[oppRole].money;
+        document.getElementById('create-btn').addEventListener('click', async () => {
+            roomId = roomInput.value;
+            if(!roomId) return alert("방 이름을 입력하세요.");
+            myRole = 'host';
+            await initGame();
+        });
 
-                // 턴 확인
-                isMyTurn = (data.turn === myRole);
-                document.getElementById('my-area').style.borderColor = isMyTurn ? '#007bff' : '#ccc';
-                document.getElementById('atk-btn').disabled = !isMyTurn;
-                document.getElementById('turn-end-btn').disabled = !isMyTurn;
+        document.getElementById('join-btn').addEventListener('click', () => {
+            roomId = roomInput.value;
+            if(!roomId) return alert("방 이름을 입력하세요.");
+            myRole = 'guest';
+            connectGame();
+        });
 
-                // 로그 출력
-                if(msgLog.lastChild?.innerText !== data.log) {
-                    const p = document.createElement('p');
-                    p.innerText = data.log;
-                    msgLog.appendChild(p);
-                    msgLog.scrollTop = msgLog.scrollHeight;
-                }
+        async function initGame() {
+            // 방장: 초기 게임 상태 생성 후 업로드
+            const deck = createDeck();
+            const hostHand = deck.splice(0, 6);
+            const guestHand = deck.splice(0, 6);
+
+            const initialState = {
+                status: 'playing',
+                turn: 'host',
+                turnCount: 1,
+                currentEvent: EVENTS[0],
+                deck: deck,
+                host: {
+                    name: 'Host', hp: 0, money: 1000, ap: 2,
+                    city: CITY_TYPES[Math.floor(Math.random()*3)],
+                    hand: hostHand, field: []
+                },
+                guest: {
+                    name: 'Guest', hp: 0, money: 1200, ap: 2, // 밸런스 패치 +200
+                    city: CITY_TYPES[Math.floor(Math.random()*3)],
+                    hand: guestHand, field: []
+                },
+                log: "게임이 시작되었습니다."
+            };
+
+            await set(ref(db, `rooms/${roomId}`), initialState);
+            connectGame();
+        }
+
+        function connectGame() {
+            introScreen.style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+            document.getElementById('turn-indicator').style.display = 'block';
+
+            onValue(ref(db, `rooms/${roomId}`), (snap) => {
+                gameData = snap.val();
+                if(!gameData) return alert("방이 존재하지 않거나 종료되었습니다.");
+                renderGame();
+                checkGameOver();
             });
         }
 
-        // 4. 액션 (공격 테스트)
-        window.attack = function() {
-            if(!isMyTurn) return;
-            
+        // --- 렌더링 로직 ---
+        function renderGame() {
+            const myData = gameData[myRole];
             const oppRole = (myRole === 'host') ? 'guest' : 'host';
-            
-            // 현재 상태 읽어오기 (간단하게 구현하기 위해 바로 업데이트 사용)
-            // 실제로는 트랜잭션을 쓰는게 안전하지만 여기선 update로 처리
-            // 상대방 체력을 10 깎음
-            const updates = {};
-            
-            // 주의: DB에서 값을 먼저 읽어와야 정확하지만, 여기선 편의상 화면 값을 참조
-            // 실제 구현 시에는 snapshot 데이터를 기반으로 계산해야 함
-            const currentOppHp = parseInt(document.getElementById('opp-hp').innerText);
-            
-            updates[`rooms/${roomId}/${oppRole}/hp`] = currentOppHp - 10;
-            updates[`rooms/${roomId}/log`] = `${myRole}가 공격했습니다! (10 피해)`;
-            
-            update(ref(db), updates);
-        };
+            const oppData = gameData[oppRole];
+            const isMyTurn = (gameData.turn === myRole);
 
-        // 5. 턴 넘기기
-        window.endTurn = function() {
-            if(!isMyTurn) return;
-            const nextTurn = (myRole === 'host') ? 'guest' : 'host';
+            // 1. 턴 표시
+            const ind = document.getElementById('turn-indicator');
+            ind.innerText = isMyTurn ? `📢 당신의 턴입니다! (AP: ${myData.ap})` : `⏳ 상대방(${oppRole})의 턴입니다...`;
+            ind.className = isMyTurn ? 'active-turn-indicator turn-my' : 'active-turn-indicator turn-opp';
+            document.getElementById('my-area').classList.toggle('active-turn', isMyTurn);
+
+            // 2. 뉴스
+            const evt = gameData.currentEvent;
+            document.getElementById('active-news-ticker').innerHTML = `📰 오늘의 뉴스: <b>${evt.name}</b> (${evt.desc})`;
+
+            // 3. 내 상태
+            document.getElementById('my-city').innerHTML = `${myData.city.name} <span class="weakness">(${myData.city.weakText})</span>`;
+            document.getElementById('my-ap').innerText = myData.ap;
+            document.getElementById('my-damage').innerText = myData.hp;
+            document.getElementById('my-money').innerText = myData.money;
             
+            // 4. 상대 상태
+            document.getElementById('opp-city').innerHTML = `${oppData.city.name} <span class="weakness">(${oppData.city.weakText})</span>`;
+            document.getElementById('opp-damage').innerText = oppData.hp;
+            document.getElementById('opp-money').innerText = oppData.money;
+
+            // 5. 카드 렌더링
+            renderHand(document.getElementById('my-hand'), myData.hand || [], false);
+            renderHand(document.getElementById('opp-hand'), oppData.hand || [], true);
+            renderField(document.getElementById('my-field'), myData.field || []);
+            renderField(document.getElementById('opp-field'), oppData.field || []);
+
+            // 6. 버튼 상태
+            document.getElementById('play-btn').disabled = !isMyTurn || myData.ap < 1;
+            document.getElementById('draw-btn').disabled = !isMyTurn || myData.ap < 1;
+            document.getElementById('end-btn').disabled = !isMyTurn;
+
+            // 7. 로그
+            const logBox = document.getElementById('message-log');
+            if(logBox.lastChild?.innerText !== gameData.log) {
+                const p = document.createElement('div');
+                p.innerHTML = `[Turn ${gameData.turnCount}] ${gameData.log}`;
+                p.style.borderBottom = "1px solid #eee"; p.style.padding = "4px";
+                logBox.appendChild(p);
+                logBox.scrollTop = logBox.scrollHeight;
+            }
+        }
+
+        function renderHand(container, cards, isOpponent) {
+            container.innerHTML = "";
+            cards.forEach(card => {
+                const el = document.createElement('div');
+                el.className = `card ${isOpponent ? 'hidden' : 'type-'+(card.type==='disaster'?'disaster':card.type)}`;
+                
+                if(!isOpponent) {
+                    el.innerHTML = `<div style="font-weight:bold">${card.name}</div>`;
+                    if(card.type === 'disaster') el.innerHTML += `<div style="color:#d32f2f">피해: ${card.dmg}</div><div style="font-size:0.8em">${card.dType}</div>`;
+                    else el.innerHTML += `<div style="color:#007bff">비용: ${card.cost}</div><div>방어: ${card.power}</div>`;
+                    
+                    if(selectedCardIds.includes(card.id)) el.classList.add('selected');
+                    el.onclick = () => toggleSelect(card.id);
+                }
+                container.appendChild(el);
+            });
+        }
+
+        function renderField(container, cards) {
+            container.innerHTML = "";
+            cards.forEach(card => {
+                const el = document.createElement('div');
+                el.className = `card type-${card.type}`;
+                el.innerHTML = `<div style="font-weight:bold">${card.name}</div><div style="font-size:0.8em">설치됨</div>`;
+                container.appendChild(el);
+            });
+        }
+
+        function toggleSelect(id) {
+            if(gameData.turn !== myRole) return;
+            if(selectedCardIds.includes(id)) selectedCardIds = selectedCardIds.filter(x => x !== id);
+            else selectedCardIds.push(id);
+            renderGame();
+        }
+
+        // --- 액션 로직 ---
+
+        // 1. 카드 뽑기
+        document.getElementById('draw-btn').addEventListener('click', async () => {
             const updates = {};
-            updates[`rooms/${roomId}/turn`] = nextTurn;
-            updates[`rooms/${roomId}/log`] = `턴이 변경되었습니다: ${nextTurn}의 차례`;
+            const deck = [...(gameData.deck || [])];
+            if(deck.length === 0) return alert("덱이 비었습니다!");
             
-            update(ref(db), updates);
+            const card = deck.pop();
+            const myHand = [...(gameData[myRole].hand || [])];
+            myHand.push(card);
+
+            updates[`rooms/${roomId}/deck`] = deck;
+            updates[`rooms/${roomId}/${myRole}/hand`] = myHand;
+            updates[`rooms/${roomId}/${myRole}/ap`] = gameData[myRole].ap - 1;
+            updates[`rooms/${roomId}/log`] = `${myRole}가 카드를 1장 뽑았습니다.`;
+
+            await update(ref(db), updates);
+        });
+
+        // 2. 카드 사용 (핵심)
+        document.getElementById('play-btn').addEventListener('click', async () => {
+            if(selectedCardIds.length === 0) return alert("사용할 카드를 선택하세요.");
+            
+            const myData = gameData[myRole];
+            const myHand = myData.hand || [];
+            const selectedCards = myHand.filter(c => selectedCardIds.includes(c.id));
+            
+            if(myData.ap < selectedCards.length) return alert("AP가 부족합니다.");
+
+            // 비용 계산 (재난 제외)
+            let totalCost = 0;
+            const evt = gameData.currentEvent;
+            
+            const mitigations = selectedCards.filter(c => c.type !== 'disaster');
+            const disasters = selectedCards.filter(c => c.type === 'disaster');
+
+            mitigations.forEach(c => {
+                let cost = c.cost;
+                if(evt.type === 'cost_up') cost += evt.val;
+                if(evt.type === 'cost_down') cost = Math.max(0, cost - evt.val);
+                totalCost += cost;
+            });
+
+            if(myData.money < totalCost) return alert("예산이 부족합니다.");
+
+            // DB 업데이트 준비
+            const updates = {};
+            const oppRole = (myRole === 'host') ? 'guest' : 'host';
+            let oppHp = gameData[oppRole].hp;
+            let logMsg = "";
+
+            // 방재 카드 설치
+            if(mitigations.length > 0) {
+                const newField = [...(myData.field || []), ...mitigations];
+                updates[`rooms/${roomId}/${myRole}/field`] = newField;
+                logMsg += `${myRole}가 방재시설 ${mitigations.length}개를 설치했습니다. `;
+            }
+
+            // 재난 카드 공격
+            if(disasters.length > 0) {
+                const oppField = gameData[oppRole].field || [];
+                let totalDmg = 0;
+
+                disasters.forEach(d => {
+                    let dmg = d.dmg;
+                    // 이벤트 버프
+                    if(evt.type === 'attack_buff') dmg = Math.floor(dmg * evt.val);
+                    // 상성 (약점)
+                    if(d.dType === gameData[oppRole].city.weakType) dmg = Math.floor(dmg * 1.5);
+                    
+                    // 방어 계산
+                    let mitigationPower = 0;
+                    // 범용 방어
+                    oppField.filter(f => f.type === 'general').forEach(f => mitigationPower += f.power);
+                    // 특정 방어 (콤보 계산 생략 - 복잡도 줄임, 단순 합산)
+                    oppField.filter(f => f.subType === 'specific' && f.target === d.name).forEach(f => mitigationPower += f.power);
+
+                    const finalDmg = Math.max(0, dmg - mitigationPower);
+                    totalDmg += finalDmg;
+                });
+                
+                oppHp += totalDmg;
+                updates[`rooms/${roomId}/${oppRole}/hp`] = oppHp;
+                logMsg += `${myRole}가 재난으로 ${totalDmg}의 피해를 입혔습니다! `;
+            }
+
+            // 자원 차감 및 핸드 정리
+            const remainingHand = myHand.filter(c => !selectedCardIds.includes(c.id));
+            updates[`rooms/${roomId}/${myRole}/hand`] = remainingHand;
+            updates[`rooms/${roomId}/${myRole}/money`] = myData.money - totalCost;
+            updates[`rooms/${roomId}/${myRole}/ap`] = myData.ap - selectedCards.length;
+            updates[`rooms/${roomId}/log`] = logMsg;
+
+            await update(ref(db), updates);
+            selectedCardIds = []; // 선택 초기화
+        });
+
+        // 3. 턴 종료
+        document.getElementById('end-btn').addEventListener('click', async () => {
+            const updates = {};
+            const nextTurn = (myRole === 'host') ? 'guest' : 'host';
+            const nextEvent = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+            
+            // 턴 넘기면서 다음 사람 AP 회복, 돈 지급
+            const nextData = gameData[nextTurn];
+            updates[`rooms/${roomId}/${nextTurn}/ap`] = 2;
+            updates[`rooms/${roomId}/${nextTurn}/money`] = nextData.money + 100;
+            
+            updates[`rooms/${roomId}/turn`] = nextTurn;
+            updates[`rooms/${roomId}/turnCount`] = gameData.turnCount + 1;
+            updates[`rooms/${roomId}/currentEvent`] = nextEvent;
+            updates[`rooms/${roomId}/log`] = `--- 턴 종료! ${nextTurn}의 차례 (뉴스: ${nextEvent.name}) ---`;
+
+            await update(ref(db), updates);
+        });
+
+        // --- 게임 종료 확인 ---
+        function checkGameOver() {
+            if(gameData.status === 'ended') return;
+
+            const hostDmg = gameData.host.hp;
+            const guestDmg = gameData.guest.hp;
+            let winner = null;
+            let reason = "";
+
+            if(hostDmg >= 2000) { winner = "Guest"; reason = "Host 도시 파산"; }
+            else if(guestDmg >= 2000) { winner = "Host"; reason = "Guest 도시 파산"; }
+            else if(gameData.turnCount > 20) {
+                if(hostDmg < guestDmg) { winner = "Host"; reason = "턴 종료 (피해량 승)"; }
+                else if(guestDmg < hostDmg) { winner = "Guest"; reason = "턴 종료 (피해량 승)"; }
+                else { winner = "Draw"; reason = "무승부"; }
+            }
+
+            if(winner) {
+                document.getElementById('result-modal').style.display = 'flex';
+                document.getElementById('result-title').innerText = winner === 'Draw' ? "무승부" : `${winner} 승리!`;
+                document.getElementById('result-desc').innerText = reason;
+                // DB에 종료 상태 기록 (무한루프 방지)
+                if(myRole === 'host') update(ref(db, `rooms/${roomId}`), { status: 'ended' });
+            }
         }
     </script>
 </body>
