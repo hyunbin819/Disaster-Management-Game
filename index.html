@@ -86,7 +86,7 @@
         #play-btn { background-color: #28a745; grid-column: span 2; }
         #draw-btn { background-color: #007bff; }
         #recover-btn { background-color: #ffc107; color: #212529; }
-        #end-btn { background-color: #dc3545; }
+        #end-btn { background-color: #dc3545; grid-column: span 4; margin-top: 10px; }
 
         #message-log { margin-top: 20px; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; height: 150px; overflow-y: auto; font-size: 0.9em; }
     </style>
@@ -247,22 +247,27 @@
             new MitigationCard("노후 시설물 지붕 보강", 300, 250, 'specific', MitigationPhase.PREVENTION, "대설"),
             new MitigationCard("제설 장비 확보 및 유지", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "대설"),
             new MitigationCard("제설제 비축", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "대설"),
+
             new MitigationCard("취약 시설 단열 보강", 200, 150, 'specific', MitigationPhase.PREVENTION, "한파"),
             new MitigationCard("도시 가스관 안전 점검", 300, 250, 'specific', MitigationPhase.PREVENTION, "한파"),
             new MitigationCard("난방용품 지원 및 연락망 구축", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "한파"),
             new MitigationCard("수도관 동파 방지 키트 배포", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "한파"),
+
             new MitigationCard("하천 제방/댐 보강", 200, 150, 'specific', MitigationPhase.PREVENTION, "폭우"),
             new MitigationCard("도시 배수 용량 확대", 300, 250, 'specific', MitigationPhase.PREVENTION, "폭우"),
             new MitigationCard("재난 경보/홍수 통제 시스템", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "폭우"),
             new MitigationCard("침수 취약지 모래주머니 비축", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "폭우"),
+
             new MitigationCard("해안 방파제/방조제 보강", 200, 150, 'specific', MitigationPhase.PREVENTION, "태풍"),
             new MitigationCard("전력/통신 시설 지반 고정", 300, 250, 'specific', MitigationPhase.PREVENTION, "태풍"),
             new MitigationCard("창문/문 안전 보강 정책", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "태풍"),
             new MitigationCard("어선/선박 결박 및 피항 조치", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "태풍"),
+
             new MitigationCard("산불 저지 방화선 구축", 200, 150, 'specific', MitigationPhase.PREVENTION, "산불"),
             new MitigationCard("산불 감시 CCTV/탑 설치", 300, 250, 'specific', MitigationPhase.PREVENTION, "산불"),
             new MitigationCard("등산로 입산 통제", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "산불"),
             new MitigationCard("진화 헬기/차량 배치", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "산불"),
+
             new MitigationCard("사방댐 및 옹벽 건설", 200, 150, 'specific', MitigationPhase.PREVENTION, "산사태"),
             new MitigationCard("급경사지 사면 보강", 300, 250, 'specific', MitigationPhase.PREVENTION, "산사태"),
             new MitigationCard("산사태 예보 시스템 가동", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "산사태"),
@@ -374,6 +379,7 @@
 
         async function initGame() {
             try {
+                // Host: 초기 게임 상태 생성 후 업로드
                 const deck = createDeck();
                 const hostHand = deck.splice(0, 6);
                 const guestHand = deck.splice(0, 6);
@@ -455,7 +461,7 @@
             document.getElementById('my-damage-val').innerText = `${myData.hp} / ${myData.maxHp}`;
             document.getElementById('my-currency-val').innerText = myData.money;
             
-            document.getElementById('opponent-city-badge').innerHTML = `${oppData.city.name}`;
+            document.getElementById('opp-city-badge').innerHTML = `${oppData.city.name}`;
             document.getElementById('opponent-damage-val').innerText = `${oppData.hp} / ${oppData.maxHp}`;
             document.getElementById('opponent-currency-val').innerText = oppData.money;
 
@@ -463,12 +469,12 @@
             renderHand(document.getElementById('my-hand'), myData.hand || [], false);
             renderHand(document.getElementById('opp-hand'), oppData.hand || [], true);
             renderField(document.getElementById('my-field'), myData.field || []);
-            renderField(document.getElementById('opponent-field'), oppData.field || []);
+            renderField(document.getElementById('opp-field'), oppData.field || []);
 
             // 5. 버튼 상태 업데이트
             const cardsToPlay = selectedCards();
             const hasSelected = cardsToPlay.length > 0;
-            const myHp = myData.hp; // 현재 피해량
+            const myHp = myData.hp; 
             
             document.getElementById('play-btn').disabled = !isMyTurn || myData.ap < cardsToPlay.length || !hasSelected;
             document.getElementById('draw-btn').disabled = !isMyTurn || myData.ap < 1 || hasSelected;
@@ -476,7 +482,14 @@
             document.getElementById('end-btn').disabled = !isMyTurn;
             document.getElementById('play-btn').innerText = `카드 사용 (${cardsToPlay.length} AP)`;
 
-            // 6. 로그는 onValue 핸들러에서 처리
+            // 6. 로그
+            const logBox = document.getElementById('message-log');
+            if(logBox.lastChild?.innerText !== gameData.log) {
+                const p = document.createElement('p');
+                p.innerHTML = gameData.log;
+                logBox.appendChild(p);
+                logBox.scrollTop = logBox.scrollHeight;
+            }
         }
         
         // 헬퍼: 현재 선택된 카드 목록 반환
