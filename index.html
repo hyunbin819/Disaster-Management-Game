@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>재난 관리 카드 게임 (Online Final Production)</title>
     <style>
-        /* CSS는 최종 오프라인 버전을 기반으로 유지됩니다. */
+        /* CSS 스타일은 최종 오프라인 버전을 기반으로 유지됩니다. */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
         
         /* 0. 인트로 화면 (추가됨) */
@@ -156,10 +156,10 @@
         </div>
 
         <div id="controls">
-            <button id="play-btn" class="control-btn">카드 사용 (0 AP)</button>
-            <button id="draw-btn" class="control-btn">카드 뽑기 (1 AP)</button>
-            <button id="recover-btn" class="control-btn">피해 복구 (1 AP)</button>
-            <button id="end-btn" class="control-btn">턴 종료</button>
+            <button id="play-btn" class="control-btn" disabled>카드 사용 (0 AP)</button>
+            <button id="draw-btn" class="control-btn" disabled>카드 뽑기 (1 AP)</button>
+            <button id="recover-btn" class="control-btn" disabled>피해 복구 (1 AP)</button>
+            <button id="end-btn" class="control-btn" disabled>턴 종료</button>
         </div>
 
         <div id="message-log"></div>
@@ -403,7 +403,7 @@
                         city: guestCity, maxHp: guestCity.maxHp,
                         hand: guestHand, field: []
                     },
-                    log: "게임을 시작합니다. Host의 턴입니다."
+                    logHistory: ["게임을 시작합니다. Host의 턴입니다."], // 로그 배열 초기화
                 };
 
                 await set(ref(db, `rooms/${roomId}`), initialState);
@@ -445,25 +445,37 @@
             const oppData = gameData[oppRole];
             const isMyTurn = (gameData.turn === myRole);
             const evt = gameData.currentEvent;
-
+            
+            // 0. DOM 요소 변수 캐싱 (Defensive Coding 적용)
+            const elMyAP = document.getElementById('my-ap-val');
+            const elMyDmg = document.getElementById('my-damage-val');
+            const elMyMoney = document.getElementById('my-currency-val');
+            const elOppDmg = document.getElementById('opponent-damage-val');
+            const elOppMoney = document.getElementById('opponent-currency-val');
+            const elMyCity = document.getElementById('my-city-badge');
+            const elOppCity = document.getElementById('opp-city-badge');
+            const elLogBox = document.getElementById('message-log');
+            
             // 1. 턴 표시 및 UI 활성화
             const ind = document.getElementById('turn-indicator');
-            ind.innerText = isMyTurn ? `📢 당신의 턴입니다! (AP: ${myData.ap})` : `⏳ 상대방(${oppRole})의 턴입니다...`;
-            ind.className = isMyTurn ? 'active-turn-indicator turn-my' : 'active-turn-indicator turn-opp';
-            document.getElementById('my-area').classList.toggle('active-turn', isMyTurn);
+            if(ind) {
+                ind.innerText = isMyTurn ? `📢 당신의 턴입니다! (AP: ${myData.ap})` : `⏳ 상대방(${oppRole})의 턴입니다...`;
+                ind.className = isMyTurn ? 'active-turn-indicator turn-my' : 'active-turn-indicator turn-opp';
+                document.getElementById('my-area').classList.toggle('active-turn', isMyTurn);
+            }
 
             // 2. 뉴스
             document.getElementById('active-news-ticker').innerHTML = `📰 오늘의 뉴스: <b class="${evt.bg ? 'bg-'+evt.bg : ''}">${evt.name}</b> (${evt.desc})`;
 
             // 3. 내/상대 상태 업데이트
-            document.getElementById('my-city-badge').innerHTML = `${myData.city.name} <span class="weakness-highlight">(${myData.city.weakText})</span>`;
-            document.getElementById('my-ap-val').innerText = myData.ap;
-            document.getElementById('my-damage-val').innerText = `${myData.hp} / ${myData.maxHp}`;
-            document.getElementById('my-currency-val').innerText = myData.money;
+            if (elMyCity) elMyCity.innerHTML = `${myData.city.name} <span class="weakness-highlight">(${myData.city.weakText})</span>`;
+            if (elMyAP) elMyAP.innerText = myData.ap;
+            if (elMyDmg) elMyDmg.innerText = `${myData.hp} / ${myData.maxHp}`;
+            if (elMyMoney) elMyMoney.innerText = myData.money;
             
-            document.getElementById('opp-city-badge').innerHTML = `${oppData.city.name}`;
-            document.getElementById('opponent-damage-val').innerText = `${oppData.hp} / ${oppData.maxHp}`;
-            document.getElementById('opponent-currency-val').innerText = oppData.money;
+            if (elOppCity) elOppCity.innerHTML = `${oppData.city.name}`;
+            if (elOppDmg) elOppDmg.innerText = `${oppData.hp} / ${oppData.maxHp}`;
+            if (elOppMoney) elOppMoney.innerText = oppData.money;
 
             // 4. 카드 렌더링
             renderHand(document.getElementById('my-hand'), myData.hand || [], false);
@@ -482,13 +494,16 @@
             document.getElementById('end-btn').disabled = !isMyTurn;
             document.getElementById('play-btn').innerText = `카드 사용 (${cardsToPlay.length} AP)`;
 
-            // 6. 로그
-            const logBox = document.getElementById('message-log');
-            if(logBox.lastChild?.innerText !== gameData.log) {
-                const p = document.createElement('p');
-                p.innerHTML = gameData.log;
-                logBox.appendChild(p);
-                logBox.scrollTop = logBox.scrollHeight;
+            // 6. 로그 (로그 배열 길이로 업데이트 확인)
+            const logs = gameData.logHistory || [];
+            if (elLogBox && elLogBox.children.length !== logs.length) {
+                elLogBox.innerHTML = ''; 
+                logs.forEach(logText => {
+                    const p = document.createElement('p');
+                    p.innerHTML = logText;
+                    elLogBox.appendChild(p);
+                });
+                elLogBox.scrollTop = elLogBox.scrollHeight;
             }
         }
         
@@ -499,6 +514,7 @@
         }
 
         function renderHand(container, cards, isOpponent) {
+            if (!container) return; // Defensive check
             container.innerHTML = "";
             cards.forEach(card => {
                 const el = document.createElement('div');
@@ -517,6 +533,7 @@
         }
 
         function renderField(container, cards) {
+            if (!container) return; // Defensive check
             container.innerHTML = "";
             cards.forEach(card => {
                 const el = document.createElement('div');
@@ -552,10 +569,13 @@
             const myHand = [...(myData.hand || [])];
             myHand.push(card);
 
+            const logHistory = [...(gameData.logHistory || [])];
+            logHistory.push(`${myRole}가 카드를 1장 뽑았습니다. (1 AP 사용)`);
+
             updates[`rooms/${roomId}/deck`] = deck;
             updates[`rooms/${roomId}/${myRole}/hand`] = myHand;
             updates[`rooms/${roomId}/${myRole}/ap`] = myData.ap - 1;
-            updates[`rooms/${roomId}/log`] = `${myRole}가 카드를 1장 뽑았습니다. (1 AP 사용)`;
+            updates[`rooms/${roomId}/logHistory`] = logHistory;
 
             await update(ref(db), updates);
         });
@@ -583,11 +603,14 @@
 
             const cost = Math.floor(amount * multiplier);
             
+            const logHistory = [...(gameData.logHistory || [])];
+            logHistory.push(`${myRole}가 피해 ${amount} 복구 완료 (비용: ${cost}). (1 AP 사용)`);
+
             const updates = {};
             updates[`rooms/${roomId}/${myRole}/money`] = myData.money - cost;
             updates[`rooms/${roomId}/${myRole}/hp`] = myData.hp - amount;
             updates[`rooms/${roomId}/${myRole}/ap`] = myData.ap - 1;
-            updates[`rooms/${roomId}/log`] = `${myRole}가 피해 ${amount} 복구 완료 (비용: ${cost}). (1 AP 사용)`;
+            updates[`rooms/${roomId}/logHistory`] = logHistory;
 
             await update(ref(db), updates);
         });
@@ -625,7 +648,7 @@
             if(mitigations.length > 0) {
                 const newField = [...(myData.field || []), ...mitigations];
                 updates[`rooms/${roomId}/${myRole}/field`] = newField;
-                logMsg += `${myRole}가 방재시설 ${mitigations.length}개를 설치했습니다. `;
+                logMsg += `${myRole}가 방재시설 ${mitigations.length}개를 설치했습니다. (비용: ${totalCost}). `;
             }
 
             // 4. 재난 카드 공격 (콤보 및 방어 로직 적용)
@@ -636,13 +659,11 @@
 
                 disasters.forEach(d => {
                     let dmg = d.dmg;
-                    let defenseLog = "";
-
+                    
                     // A. 공격력 계산 (이벤트 및 상성)
                     if(evt.type === 'attack_buff') dmg = Math.floor(dmg * evt.val);
                     if(d.dType === gameData[oppRole].city.weakType) { 
                         dmg = Math.floor(dmg * 1.5); 
-                        defenseLog += `[약점공략!] `;
                     }
                     
                     // B. 방어 계산 (콤보 계산 헬퍼 사용)
@@ -657,15 +678,19 @@
                 oppHp += totalDmg;
                 updates[`rooms/${roomId}/${oppRole}/hp`] = oppHp;
                 
-                logMsg += `${myRole}가 재난으로 총 <b>${totalDmg}</b>의 피해를 입혔습니다! (${damageLog.join(', ')}) `;
+                logMsg += `${myRole}가 재난으로 총 <b>${totalDmg}</b>의 피해를 입혔습니다! `;
             }
 
             // 5. 자원 차감 및 핸드 정리
             const remainingHand = myData.hand.filter(c => !selectedCardIds.includes(c.id));
+            
+            const logHistory = [...(gameData.logHistory || [])];
+            logHistory.push(logMsg);
+
             updates[`rooms/${roomId}/${myRole}/hand`] = remainingHand;
             updates[`rooms/${roomId}/${myRole}/money`] = myData.money - totalCost;
             updates[`rooms/${roomId}/${myRole}/ap`] = myData.ap - cardsToPlay.length;
-            updates[`rooms/${roomId}/log`] = logMsg;
+            updates[`rooms/${roomId}/logHistory`] = logHistory;
 
             await update(ref(db), updates);
             selectedCardIds = []; // 선택 초기화
@@ -697,11 +722,15 @@
                 cardDrawMsg = `덱이 비었습니다. 드로우 실패.`;
             }
 
+            // 로그 업데이트
+            const logHistory = [...(gameData.logHistory || [])];
+            logHistory.push(`--- 턴 종료! ${nextTurn}의 차례 (뉴스: ${nextEvent.name}). ${cardDrawMsg} ---`);
+            updates[`rooms/${roomId}/logHistory`] = logHistory;
+
             // 턴 정보 업데이트
             updates[`rooms/${roomId}/turn`] = nextTurn;
             updates[`rooms/${roomId}/turnCount`] = gameData.turnCount + 1;
             updates[`rooms/${roomId}/currentEvent`] = nextEvent;
-            updates[`rooms/${roomId}/log`] = `--- 턴 종료! ${nextTurn}의 차례 (뉴스: ${nextEvent.name}). ${cardDrawMsg} ---`;
 
             await update(ref(db), updates);
         });
