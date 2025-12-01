@@ -27,6 +27,16 @@
         #join-btn { background-color: #007bff; }
         .intro-btn:hover { transform: scale(1.05); filter: brightness(1.1); }
         
+        /* 인트로 텍스트 상세 스타일 */
+        .intro-title { font-size: 2.5em; font-weight: bold; color: #0056b3; margin-bottom: 20px; }
+        .intro-section { margin-bottom: 25px; text-align: left; padding-bottom: 15px; }
+        .intro-section.rules { border-bottom: none; }
+        .intro-section h3 { color: #d32f2f; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 1.3em; }
+        .intro-list { list-style-type: disc; padding-left: 20px; margin-top: 10px;}
+        .intro-list li { margin-bottom: 8px; line-height: 1.6; font-size: 1em; }
+        .highlight { font-weight: bold; color: #d32f2f; background-color: #ffebee; padding: 2px 5px; border-radius: 4px; }
+        /* -------------------------- */
+
         /* 1. 턴 대기 오버레이 */
         #turn-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -103,17 +113,34 @@
 
     <div id="intro-screen">
         <div class="intro-box">
-            <h1>🌪️ 재난 카드 게임 Online</h1>
-            <p>
-                당신은 도시 방재 담당관입니다. 한정된 예산으로 재난을 관리하세요.
-                <div style="font-size:1.1em; color:#d32f2f; margin:15px 0 20px;">
-                    💡 **핵심 전략:** 상대 도시의 취약 재난으로 공격하세요! (피해 1.5배)
-                </div>
-            </p>
+            <h1 class="intro-title" style="font-size: 2.5em; color: #1e3c72;">
+                🌪️ 재난 관리 카드 게임
+            </h1>
+            
+            <div class="intro-section" style="border-bottom: 1px solid #eee; padding-bottom: 15px;">
+                <p style="text-align: left; margin-bottom: 15px;">
+                    당신은 도시의 안전을 책임지는 <b>방재 담당관</b>입니다. 한정된 예산으로 효율적인 방재 시설을 설치하고, 자연재해와 인공재난으로부터 시민을 보호하세요. 동시에 상대 도시의 약점을 공략하여 경쟁에서 승리해야 합니다.
+                </p>
+            </div>
+            
+            <div class="intro-section" style="border-bottom: 1px solid #eee; padding-bottom: 15px;">
+                <h3 style="color: #0056b3; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                    💡 핵심 승리 전략 (학습 포인트)
+                </h3>
+                <ul class="intro-list" style="text-align: left; padding-left: 20px; list-style-type: disc;">
+                    <li><b>지역별 취약점 공략:</b> 각 도시는 고유한 지형(해안, 노후도심, 산간)을 가집니다. 상대 도시의 <span class="highlight">취약 재난으로 공격하면 1.5배의 피해</span>를 줍니다.</li>
+                    <li><b>방재 콤보 구축:</b> 동일 재난에 대해 [예방] + [준비] 시설을 모두 설치하면 강력한 시너지 보너스를 얻습니다.</li>
+                    <li><b>자금 관리:</b> 무조건적인 카드 사용보다는 상황에 맞는 저축과 시설 투자가 중요합니다.</li>
+                </ul>
+            </div>
+            
+            <hr style="width: 80%; border-color: #eee; margin: 20px 0 10px;">
+
+            <p>온라인 연결을 위해 방 이름을 입력해주세요.</p>
             <input type="text" id="room-input" class="intro-input" placeholder="방 이름 (예: myroom)">
             <button id="create-btn" class="intro-btn">방 만들기 (Host)</button>
             <button id="join-btn" class="intro-btn">방 참가하기 (Guest)</button>
-            <p style="font-size:0.8em; color:#666; margin-top:20px;">*같은 방 이름을 입력해야 만날 수 있습니다. Host가 게임을 시작해야 Guest가 접속됩니다.</p>
+            <p style="font-size:0.8em; color:#666; margin-top:20px;">*Host가 게임을 시작해야 Guest가 접속됩니다.</p>
         </div>
     </div>
 
@@ -423,7 +450,6 @@
         }
 
         function connectGame() {
-            // [수정: 로비 화면 전환 로직]
             introScreen.style.display = 'none';
             document.getElementById('game-container').style.display = 'block';
             document.getElementById('turn-indicator').style.display = 'block';
@@ -512,7 +538,7 @@
             renderHand(document.getElementById('my-hand'), myData.hand || [], false);
             renderHand(document.getElementById('opp-hand'), oppData.hand || [], true);
             renderField(document.getElementById('my-field'), myData.field || []);
-            renderField(document.getElementById('opponent-field'), oppData.field || []); // opp-field ID 수정됨
+            renderField(document.getElementById('opponent-field'), oppData.field || []);
 
             // 5. 버튼 상태 업데이트
             const cardsToPlay = selectedCards();
@@ -826,3 +852,5 @@
     </script>
 </body>
 </html>
+</html>
+
