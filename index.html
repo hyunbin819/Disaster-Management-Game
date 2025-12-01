@@ -3,1043 +3,213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>재난 관리 카드 게임 (Final - Intro Added)</title>
+    <title>재난 관리 카드 게임 (Online Multiplayer)</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f0f2f5; color: #333; margin: 0; padding: 20px;
-        }
-
-        /* 0. 인트로 화면 (추가됨) */
-        #intro-screen {
+        /* 기존 스타일 유지 + 로비 스타일 추가 */
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        
+        /* 로비 화면 (방 만들기/참가) */
+        #lobby-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            color: white; z-index: 5000;
+            background: #1e3c72; color: white; z-index: 9999;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
-        .intro-box {
-            background-color: rgba(255, 255, 255, 0.95);
-            color: #333;
-            padding: 40px; border-radius: 20px;
-            max-width: 700px; width: 90%;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            animation: fadeIn 0.5s ease-out;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .intro-title { font-size: 2.5em; font-weight: bold; color: #0056b3; margin-bottom: 20px; }
-        .intro-section { margin-bottom: 25px; text-align: left; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-        .intro-section h3 { color: #d32f2f; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-        .intro-list li { margin-bottom: 8px; line-height: 1.6; font-size: 1.1em; }
-        .highlight { font-weight: bold; color: #d32f2f; background-color: #ffebee; padding: 2px 5px; border-radius: 4px; }
-        
-        #game-start-btn {
-            font-size: 1.5em; padding: 15px 50px; cursor: pointer;
-            background-color: #28a745; color: white; border: none; border-radius: 50px;
-            transition: transform 0.2s, background-color 0.2s;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
-            font-weight: bold; margin-top: 10px;
-        }
-        #game-start-btn:hover { transform: scale(1.05); background-color: #218838; }
+        .lobby-box { background: white; color: #333; padding: 40px; border-radius: 15px; text-align: center; width: 300px; }
+        .lobby-box input { width: 100%; padding: 10px; margin: 10px 0; font-size: 1.2em; text-align: center; }
+        .lobby-btn { width: 100%; padding: 15px; margin: 5px 0; font-size: 1.1em; cursor: pointer; border: none; border-radius: 5px; color: white; }
+        #create-room-btn { background-color: #28a745; }
+        #join-room-btn { background-color: #007bff; }
 
-        /* 1. 턴 대기 오버레이 */
-        #turn-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background-color: rgba(0, 0, 0, 0.95); color: white; z-index: 2000;
-            display: none; /* 초기에는 숨김 (인트로 먼저) */
-            flex-direction: column; justify-content: center;
-            align-items: center; text-align: center;
-        }
-        #turn-overlay h1 { font-size: 3em; margin-bottom: 20px; }
-        #turn-overlay p { font-size: 1.5em; margin-bottom: 40px; color: #ccc; }
-        #start-turn-btn {
-            font-size: 1.5em; padding: 15px 40px; cursor: pointer;
-            background-color: #007bff; color: white; border: none; border-radius: 8px;
-            transition: transform 0.2s;
-        }
-        #start-turn-btn:hover { transform: scale(1.05); background-color: #0056b3; }
-
-        /* 결과 요약 테이블 스타일 */
-        .summary-box {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            min-width: 300px;
-            text-align: left;
-        }
-        .summary-table {
-            width: 100%;
-            border-collapse: collapse;
-            color: white;
-            font-size: 1.1em;
-        }
-        .summary-table th, .summary-table td {
-            padding: 10px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-        }
-        .summary-table th { color: #aaa; font-weight: normal; font-size: 0.9em; }
-        .summary-table td:first-child { text-align: left; font-weight: bold; color: #ddd; }
-        .val-bad { color: #ff6b6b; font-weight: bold; }
-        .val-good { color: #51cf66; font-weight: bold; }
-
-        /* 2. 뉴스 속보 모달 */
-        #news-modal {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background-color: rgba(0, 0, 0, 0.85); z-index: 3000;
-            display: none;
-            justify-content: center; align-items: center;
-        }
-        .news-content {
-            background-color: white; width: 90%; max-width: 600px;
-            padding: 40px; border-radius: 15px; text-align: center;
-            box-shadow: 0 0 50px rgba(255, 255, 255, 0.3);
-            animation: popUp 0.3s ease-out;
-        }
-        @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        
-        .news-badge {
-            display: inline-block; padding: 8px 20px; border-radius: 25px;
-            font-weight: bold; color: white; margin-bottom: 20px; font-size: 1.2em;
-        }
-        .bg-bad { background-color: #dc3545; }
-        .bg-good { background-color: #28a745; }
-        .bg-normal { background-color: #6c757d; }
-
-        .news-title { font-size: 2.5em; font-weight: bold; margin-bottom: 20px; color: #333; }
-        .news-desc { font-size: 1.4em; color: #555; margin-bottom: 40px; line-height: 1.6; }
-        
-        #confirm-news-btn {
-            font-size: 1.3em; padding: 15px 40px; cursor: pointer;
-            background-color: #333; color: white; border: none; border-radius: 8px;
-            font-weight: bold;
-        }
-        #confirm-news-btn:hover { background-color: #555; }
-
-        /* 3. 게임 메인 화면 */
-        #game-container { 
-            display: none; max-width: 1000px; margin: 0 auto; 
-            background-color: #f0f2f5; padding: 20px; border-radius: 15px;
-        }
-
-        #active-news-ticker {
-            background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba;
-            padding: 12px; margin-bottom: 20px; border-radius: 8px;
-            font-weight: bold; text-align: center; font-size: 1.1em;
-            display: flex; justify-content: center; align-items: center; gap: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-
-        .player-area {
-            border: 2px solid #ccc; border-radius: 10px; padding: 20px;
-            margin-bottom: 20px; background-color: #ffffff;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        .player-area.active-turn { border: 3px solid #007bff; box-shadow: 0 0 20px rgba(0,123,255,0.3); }
-        
-        .status-bar {
-            display: flex; justify-content: space-between; align-items: center;
-            padding-bottom: 15px; border-bottom: 1px solid #eee; margin-bottom: 15px;
-        }
-        .status-bar h2 { margin: 0; font-size: 1.8em; color: #111; display: flex; align-items: center; }
-        
-        .city-badge {
-            font-size: 0.5em; background-color: #495057; color: white; 
-            padding: 5px 10px; border-radius: 15px; margin-left: 10px; vertical-align: middle;
-        }
-        .weakness-highlight { color: #ff6b6b; font-weight: bold; margin-left: 5px; }
-
-        .player-stats { display: flex; gap: 15px; text-align: right; }
-        .stat-box {
-            font-size: 1.1em; font-weight: 700; background-color: #f8f9fa;
-            padding: 8px 12px; border-radius: 6px; display: flex; align-items: center; gap: 5px;
-        }
-        .currency { color: #28a745; }
-        .damage { color: #dc3545; }
-        .ap { color: #007bff; }
-
-        /* 방어력 대시보드 */
-        .defense-dashboard {
-            display: flex; flex-direction: column;
-            gap: 5px; margin-bottom: 15px; padding: 10px;
-            background-color: #e8f5e9; border-radius: 8px; border: 1px solid #c8e6c9;
-        }
-        .defense-row {
-            display: flex; justify-content: space-around; width: 100%; gap: 10px;
-        }
-        .def-category { 
-            display: flex; flex-direction: column; font-size: 0.9em; text-align: center; 
-            flex: 1; padding: 8px; border-radius: 8px; background-color: white;
-            border: 1px solid #ddd; transition: all 0.3s;
-        }
-        .def-title { font-weight: bold; margin-bottom: 8px; color: #2e7d32; border-bottom: 1px solid #eee; padding-bottom: 4px;}
-        .def-item { display: flex; justify-content: space-between; gap: 5px; margin-bottom: 2px;}
-        .def-val { font-weight: bold; }
-        
-        .def-category.weak {
-            background-color: #ffebee; border: 2px solid #ef5350; transform: scale(1.02); box-shadow: 0 2px 5px rgba(255,0,0,0.1);
-        }
-        .def-category.weak .def-title { color: #c62828; }
-        .weak-label { 
-            font-size: 0.7em; background-color: #ef5350; color: white; 
-            padding: 2px 6px; border-radius: 4px; margin-left: 5px; vertical-align: text-top;
-        }
-
-        .area-title {
-            font-size: 1.1em; font-weight: 600; color: #555;
-            margin: 15px 0 10px 0; border-bottom: 2px solid #eee; padding-bottom: 5px;
-        }
-        .card-container {
-            display: flex; flex-wrap: wrap; gap: 10px; min-height: 120px;
-            background-color: #f8f9fa; border-radius: 8px; padding: 15px;
-        }
-
-        .card {
-            width: 110px; height: 160px; background-color: #fff; border: 2px solid #ddd;
-            border-radius: 8px; padding: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            cursor: pointer; transition: transform 0.1s ease;
-            display: flex; flex-direction: column; justify-content: space-between;
-            font-size: 0.9em; user-select: none;
-        }
-        .card:hover { transform: translateY(-5px) scale(1.03); z-index: 10; }
-        
-        /* 선택된 카드 강조 스타일 강화 */
-        .card.selected { 
-            border: 3px solid #007bff !important; 
-            background-color: #e3f2fd !important;
-            transform: scale(1.05); 
-            box-shadow: 0 0 15px rgba(0,123,255,0.4) !important;
-        }
-        
-        .card-name { font-weight: 700; font-size: 1em; margin-bottom: 5px; line-height: 1.2; }
-        .card-info { font-size: 0.85em; color: #444; }
-        .card-type-label { font-size: 0.75em; font-style: italic; color: #777; margin-top: auto; }
-        
-        .card.type-disaster { border-left: 5px solid #dc3545; }
-        .card.type-mitigation { border-left: 5px solid #28a745; }
-        .card.type-general { border-left: 5px solid #ffc107; }
-
-        .hand.opponent .card { background-color: #555; color: #aaa; border-color: #444; justify-content: center; align-items: center; }
-        .hand.opponent .card::before { content: "CARD"; font-weight: bold; font-size: 1.2em; opacity: 0.3; }
-        .hand.opponent .card * { display: none; }
-        
-        .card.obfuscated { background-color: #e9ecef; border-left: 5px solid #6c757d; color: #495057; }
-
-        #controls {
-            display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-top: 20px;
-        }
-        .control-btn {
-            padding: 15px; font-size: 1em; font-weight: 600;
-            cursor: pointer; border: none; border-radius: 8px; color: white;
-            transition: filter 0.2s;
-        }
-        .control-btn:hover { filter: brightness(90%); }
-        .control-btn:disabled { background-color: #ccc !important; cursor: not-allowed; filter: none; }
-        
-        #play-selected-btn { background-color: #28a745; grid-column: span 2; }
-        #draw-card-btn { background-color: #007bff; }
-        #recover-btn { background-color: #ffc107; color: #212529; }
-        #end-turn-btn { background-color: #dc3545; grid-column: span 4; margin-top: 10px; }
-
-        #message-log {
-            margin-top: 20px; background-color: #fff; border: 1px solid #ddd;
-            border-radius: 8px; padding: 15px; height: 150px; overflow-y: auto; font-size: 0.9em;
-        }
-        .log-turn { font-weight: bold; color: #007bff; margin-top: 8px; border-top: 1px dashed #eee; padding-top: 4px; }
-        .log-action { color: #28a745; }
-        .log-damage { color: #dc3545; }
-        .log-info { color: #6c757d; }
-        .log-news { color: #856404; font-weight: bold; background-color: #fff3cd; padding: 2px 5px; border-radius: 3px; }
+        /* 게임 화면 등 기존 스타일 */
+        #game-container { display: none; max-width: 1000px; margin: 0 auto; background-color: #f0f2f5; padding: 20px; border-radius: 15px; }
+        .player-area { border: 2px solid #ccc; border-radius: 10px; padding: 20px; margin-bottom: 20px; background-color: #fff; }
+        .player-area.active-turn { border: 3px solid #007bff; box-shadow: 0 0 15px rgba(0,123,255,0.3); }
+        .status-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+        .card-container { display: flex; flex-wrap: wrap; gap: 10px; min-height: 120px; background: #f8f9fa; padding: 10px; border-radius: 8px; }
+        .card { width: 100px; height: 140px; background: white; border: 1px solid #ddd; border-radius: 8px; padding: 5px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; font-size: 0.8em; }
+        .card:hover { transform: translateY(-5px); }
+        .card.selected { border: 3px solid #007bff; background: #e3f2fd; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        button { padding: 10px; cursor: pointer; font-size: 1em; }
+        #message-log { height: 100px; overflow-y: scroll; background: white; border: 1px solid #ddd; padding: 10px; margin-top: 10px; }
+        .waiting-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); color:white; display:flex; justify-content:center; align-items:center; font-size:2em; z-index:100; display:none; }
     </style>
 </head>
 <body>
 
-    <div id="intro-screen">
-        <div class="intro-box">
-            <div class="intro-title">🌪️ 재난 관리 카드 게임</div>
-            
-            <div class="intro-section">
-                <h3>📋 게임 소개</h3>
-                <p>당신은 도시의 안전을 책임지는 <b>방재 담당관</b>입니다. 한정된 예산으로 효율적인 방재 시설을 설치하고, 자연재해와 인공재난으로부터 시민을 보호하세요. 동시에 상대 도시의 약점을 공략하여 경쟁에서 승리해야 합니다.</p>
-            </div>
-
-            <div class="intro-section">
-                <h3>💡 핵심 승리 전략 (학습 포인트)</h3>
-                <ul class="intro-list" style="text-align: left; padding-left: 20px;">
-                    <li><b>지역별 취약점 공략:</b> 각 도시는 고유한 지형(해안, 노후도심, 산간)을 가집니다. 상대 도시의 <span class="highlight">취약 재난으로 공격하면 1.5배의 피해</span>를 줍니다.</li>
-                    <li><b>방재 콤보 구축:</b> 동일 재난에 대해 <span class="highlight">[예방] + [준비] 시설을 모두 설치</span>하면 강력한 시너지 보너스를 얻습니다.</li>
-                    <li><b>자금 관리:</b> 무조건적인 카드 사용보다는 상황에 맞는 저축과 시설 투자가 중요합니다.</li>
-                </ul>
-            </div>
-
-            <button id="game-start-btn">게임 시작</button>
-        </div>
-    </div>
-
-    <div id="turn-overlay">
-        <h1 id="overlay-player-name">플레이어 1님의 턴입니다.</h1>
-        <div id="overlay-content">
-            <p>상대방은 화면을 보지 마세요.</p>
-        </div>
-        <button id="start-turn-btn">턴 시작하기</button>
-    </div>
-
-    <div id="news-modal">
-        <div class="news-content">
-            <div id="news-badge" class="news-badge bg-normal">일일 재난 브리핑</div>
-            <div id="news-title" class="news-title">뉴스 제목</div>
-            <div id="news-desc" class="news-desc">뉴스 내용</div>
-            <button id="confirm-news-btn">확인 (작전 개시)</button>
+    <div id="lobby-screen">
+        <div class="lobby-box">
+            <h1>재난 카드 게임</h1>
+            <p>온라인 멀티플레이</p>
+            <input type="text" id="room-id-input" placeholder="방 이름 입력 (예: room1)">
+            <button id="create-room-btn" class="lobby-btn">방 만들기 (방장)</button>
+            <button id="join-room-btn" class="lobby-btn">방 참가하기 (도전자)</button>
         </div>
     </div>
 
     <div id="game-container">
+        <div id="waiting-msg" class="waiting-overlay">상대방을 기다리는 중...</div>
         
-        <div id="active-news-ticker">
-            <span style="font-size:1.2em">📰</span>
-            <span id="ticker-text">현재 적용 중인 뉴스가 없습니다.</span>
-        </div>
-
-        <div id="my-area" class="player-area active-turn">
+        <div class="player-area" id="opponent-area">
             <div class="status-bar">
-                <h2>
-                    <span id="my-name">플레이어 1</span>
-                    <span id="my-city-badge" class="city-badge"></span>
-                </h2>
-                <div class="player-stats">
-                    <div class="stat-box ap">⚡ AP: <span id="my-ap-val">2</span></div>
-                    <div class="stat-box damage">💔 피해: <span id="my-damage-val">0</span></div>
-                    <div class="stat-box currency">💰 예산: <span id="my-currency-val">1000</span></div>
-                </div>
+                <h3>상대방 (<span id="opp-role">Guest</span>)</h3>
+                <div>체력: <span id="opp-hp">2000</span> | 돈: <span id="opp-money">1000</span></div>
             </div>
-            
-            <div id="my-defense-stats" class="defense-dashboard"></div>
-
-            <div class="area-title">설치된 시설</div>
-            <div id="my-field" class="card-container field"></div>
-            
-            <div class="area-title">보유 카드 (클릭하여 선택)</div>
-            <div id="my-hand" class="card-container hand"></div>
+            <div id="opp-hand" class="card-container" style="background:#ddd;">카드 뒷면만 보임</div>
         </div>
 
-        <div id="opponent-area" class="player-area">
+        <div class="player-area active-turn" id="my-area">
             <div class="status-bar">
-                <h2>
-                    <span id="opponent-name">플레이어 2</span>
-                    <span id="opponent-city-badge" class="city-badge"></span>
-                </h2>
-                <div class="player-stats">
-                    <div class="stat-box ap" style="opacity:0.5">AP: ?</div>
-                    <div class="stat-box damage">💔 피해: <span id="opponent-damage-val">0</span></div>
-                    <div class="stat-box currency">💰 예산: <span id="opponent-currency-val">1000</span></div>
-                </div>
+                <h3>나 (<span id="my-role">Host</span>)</h3>
+                <div>체력: <span id="my-hp">2000</span> | 돈: <span id="my-money">1000</span></div>
             </div>
-            <div class="area-title">상대 도시 시설 (정보 제한됨)</div>
-            <div id="opponent-field" class="card-container field"></div>
-            <div class="area-title">상대 손패</div>
-            <div id="opponent-hand" class="card-container hand opponent"></div>
+            <div id="my-hand" class="card-container"></div>
         </div>
 
-        <div id="controls">
-            <button id="play-selected-btn" class="control-btn">카드 사용 (1 AP)</button>
-            <button id="draw-card-btn" class="control-btn">카드 뽑기 (1 AP)</button>
-            <button id="recover-btn" class="control-btn">피해 복구 (1 AP)</button>
-            <button id="end-turn-btn" class="control-btn">턴 종료</button>
+        <div class="controls">
+            <button id="atk-btn" onclick="attack()">공격 테스트 (10 데미지)</button>
+            <button id="turn-end-btn" onclick="endTurn()">턴 넘기기</button>
         </div>
-
-        <div id="message-log"><p class="log-info">게임이 시작되었습니다.</p></div>
+        <div id="message-log"></div>
     </div>
 
-    <script>
-        window.onload = function() {
-            console.log("Game Script Loaded");
-            // 인트로 화면이 있으므로 alert는 제거하거나 인트로 이후로 미룸
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update } 
+        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // ============================================================
+        // 🔥 [중요] 여기에 Firebase 설정값을 붙여넣으세요 🔥
+        // ============================================================
+        const firebaseConfig = {
+          apiKey: "AIzaSyBmAUvLNMXYGS5674lob7kZzzkLH4ctYBU",
+          authDomain: "disaster-game-online.firebaseapp.com",
+          projectId: "disaster-game-online",
+          storageBucket: "disaster-game-online.firebasestorage.app",
+          messagingSenderId: "557399169778",
+          appId: "1:557399169778:web:809b8f4444cbbc6b14ce6b",
+          measurementId: "G-PCF2JDM9HF"
+        };
+        // ============================================================
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 게임 상태 변수
+        let roomId = "";
+        let myRole = ""; // 'host' (방장) or 'guest' (참가자)
+        let isMyTurn = false;
+        let gameState = {
+            turn: 'host', // 누구 턴인지
+            host: { hp: 2000, money: 1000 },
+            guest: { hp: 2000, money: 1000 },
+            log: "게임 대기 중..."
         };
 
-        const DisasterType = { WINTER: "겨울철 재난", WIND_FLOOD: "풍수해", MOUNTAIN: "산악 재난" };
-        const MitigationPhase = { PREVENTION: "예방", PREPAREDNESS: "준비", GENERAL: "범용" };
+        // DOM 요소
+        const lobbyScreen = document.getElementById('lobby-screen');
+        const gameContainer = document.getElementById('game-container');
+        const roomInput = document.getElementById('room-id-input');
+        const msgLog = document.getElementById('message-log');
 
-        const CITY_TYPES = [
-            { name: "🌊 해안 도시", weakType: DisasterType.WIND_FLOOD, desc: "풍수해(태풍,폭우)에 취약", weakText: "풍수해 취약" },
-            { name: "🏚️ 노후 도심", weakType: DisasterType.WINTER, desc: "노후 주택 밀집으로 겨울철(대설,한파)에 취약", weakText: "겨울철 취약" },
-            { name: "⛰️ 산간 지역", weakType: DisasterType.MOUNTAIN, desc: "급경사지로 산악(산불,산사태)에 취약", weakText: "산악 재난 취약" }
-        ];
-
-        const EVENTS = [
-            { id: 'normal', name: "☀️ 평온한 날", desc: "특이한 기상 징후나 사회적 이슈가 없습니다.", type: "normal", val: 0, badge: "평온", bg: "bg-normal" },
-            { id: 'climate', name: "⚠️ 기후 이상 감지", desc: "이번 턴에 내가 사용하는 <b>재난 카드의 공격력이 1.5배</b> 증가합니다.", type: "attack_buff", val: 1.5, badge: "위기", bg: "bg-bad" },
-            { id: 'inflation', name: "💸 원자재 가격 폭등", desc: "이번 턴에 <b>방재 시설 설치 비용이 50원 증가</b>합니다.", type: "cost_up", val: 50, badge: "위기", bg: "bg-bad" },
-            { id: 'delay', name: "📉 복구 작업 지연", desc: "인력 부족으로 <b>피해 복구 비용이 3배</b>로 증가합니다.", type: "recover_nerf", val: 3, badge: "위기", bg: "bg-bad" },
-            { id: 'tech', name: "💡 방재 기술 혁신", desc: "신기술 도입으로 <b>방재 시설 설치 비용이 50원 할인</b>됩니다.", type: "cost_down", val: 50, badge: "기회", bg: "bg-good" },
-            { id: 'gov', name: "🤝 민관 협력 강화", desc: "자원봉사 지원으로 <b>피해 복구 비용이 1.5배</b>로 감소합니다.", type: "recover_buff", val: 1.5, badge: "기회", bg: "bg-good" }
-        ];
-
-        class Card {
-            constructor(name) { 
-                this.name = name; 
-                this.id = 'card_' + Date.now() + '_' + Math.floor(Math.random() * 99999);
-            }
-        }
-        class DisasterCard extends Card {
-            constructor(name, disasterType, baseDamage) {
-                super(name);
-                this.disasterType = disasterType;
-                this.baseDamage = baseDamage;
-                this.cardType = "disaster";
-            }
-        }
-        class MitigationCard extends Card {
-            constructor(name, cost, power, mitigationType, phase = null, disasterTarget = null) {
-                super(name);
-                this.cost = cost;
-                this.power = power;
-                this.mitigationType = mitigationType;
-                this.phase = phase;
-                this.disasterTarget = disasterTarget;
-                this.cardType = (mitigationType === 'general') ? 'general' : 'mitigation';
-            }
-        }
-
-        const DISASTER_DATA = [
-            new DisasterCard("대설 (50)", DisasterType.WINTER, 50), new DisasterCard("대설 (100)", DisasterType.WINTER, 100), new DisasterCard("대설 (200)", DisasterType.WINTER, 200),
-            new DisasterCard("한파 (50)", DisasterType.WINTER, 50), new DisasterCard("한파 (100)", DisasterType.WINTER, 100), new DisasterCard("한파 (200)", DisasterType.WINTER, 200),
-            new DisasterCard("폭우 (50)", DisasterType.WIND_FLOOD, 50), new DisasterCard("폭우 (100)", DisasterType.WIND_FLOOD, 100), new DisasterCard("폭우 (200)", DisasterType.WIND_FLOOD, 200),
-            new DisasterCard("태풍 (50)", DisasterType.WIND_FLOOD, 50), new DisasterCard("태풍 (100)", DisasterType.WIND_FLOOD, 100), new DisasterCard("태풍 (200)", DisasterType.WIND_FLOOD, 200),
-            new DisasterCard("산불 (50)", DisasterType.MOUNTAIN, 50), new DisasterCard("산불 (100)", DisasterType.MOUNTAIN, 100), new DisasterCard("산불 (200)", DisasterType.MOUNTAIN, 200),
-            new DisasterCard("산사태 (50)", DisasterType.MOUNTAIN, 50), new DisasterCard("산사태 (100)", DisasterType.MOUNTAIN, 100), new DisasterCard("산사태 (200)", DisasterType.MOUNTAIN, 200),
-        ];
-        
-        const SPECIFIC_MITIGATION_DATA = [
-            new MitigationCard("도로 열선 케이블 설치", 200, 150, 'specific', MitigationPhase.PREVENTION, "대설"),
-            new MitigationCard("노후 시설물 지붕 보강", 300, 250, 'specific', MitigationPhase.PREVENTION, "대설"),
-            new MitigationCard("제설 장비 확보 및 유지", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "대설"),
-            new MitigationCard("제설제 비축", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "대설"),
-
-            new MitigationCard("취약 시설 단열 보강", 200, 150, 'specific', MitigationPhase.PREVENTION, "한파"),
-            new MitigationCard("도시 가스관 안전 점검", 300, 250, 'specific', MitigationPhase.PREVENTION, "한파"),
-            new MitigationCard("난방용품 지원 및 연락망 구축", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "한파"),
-            new MitigationCard("수도관 동파 방지 키트 배포", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "한파"),
-
-            new MitigationCard("하천 제방/댐 보강", 200, 150, 'specific', MitigationPhase.PREVENTION, "폭우"),
-            new MitigationCard("도시 배수 용량 확대", 300, 250, 'specific', MitigationPhase.PREVENTION, "폭우"),
-            new MitigationCard("재난 경보/홍수 통제 시스템", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "폭우"),
-            new MitigationCard("침수 취약지 모래주머니 비축", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "폭우"),
-
-            new MitigationCard("해안 방파제/방조제 보강", 200, 150, 'specific', MitigationPhase.PREVENTION, "태풍"),
-            new MitigationCard("전력/통신 시설 지반 고정", 300, 250, 'specific', MitigationPhase.PREVENTION, "태풍"),
-            new MitigationCard("창문/문 안전 보강 정책", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "태풍"),
-            new MitigationCard("어선/선박 결박 및 피항 조치", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "태풍"),
-
-            new MitigationCard("산불 저지 방화선 구축", 200, 150, 'specific', MitigationPhase.PREVENTION, "산불"),
-            new MitigationCard("산불 감시 CCTV/탑 설치", 300, 250, 'specific', MitigationPhase.PREVENTION, "산불"),
-            new MitigationCard("등산로 입산 통제", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "산불"),
-            new MitigationCard("진화 헬기/차량 배치", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "산불"),
-
-            new MitigationCard("사방댐 및 옹벽 건설", 200, 150, 'specific', MitigationPhase.PREVENTION, "산사태"),
-            new MitigationCard("급경사지 사면 보강", 300, 250, 'specific', MitigationPhase.PREVENTION, "산사태"),
-            new MitigationCard("산사태 예보 시스템 가동", 50, 30, 'specific', MitigationPhase.PREPAREDNESS, "산사태"),
-            new MitigationCard("주민 대피소 지정 및 안내", 100, 70, 'specific', MitigationPhase.PREPAREDNESS, "산사태"),
-        ];
-
-        const GENERAL_MITIGATION_DATA = [
-            new MitigationCard(`재난 관리 시스템 통합`, 150, 80, 'general', MitigationPhase.GENERAL, null),
-            new MitigationCard(`시민 안전 교육 확대`, 100, 50, 'general', MitigationPhase.GENERAL, null),
-            new MitigationCard(`재난 대응 매뉴얼 배포`, 120, 60, 'general', MitigationPhase.GENERAL, null)
-        ];
-
-        class Deck {
-            constructor() { this.cards = []; }
-            build(cardList) { this.cards = cardList; this.shuffle(); }
-            shuffle() {
-                for (let i = this.cards.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
-                }
-            }
-            draw(num = 1) {
-                const drawn = [];
-                for (let i = 0; i < num; i++) {
-                    if (this.cards.length > 0) drawn.push(this.cards.pop());
-                }
-                return drawn;
-            }
-        }
-
-        class Player {
-            constructor(name) {
-                this.name = name;
-                this.currency = 1000;
-                this.hand = [];
-                this.activeMitigations = [];
-                this.totalDamageTaken = 0;
-                this.actionPoints = 0;
-                this.cityType = null;
-            }
-            drawCard(deck, num = 1) {
-                this.hand.push(...deck.draw(num));
-            }
+        // 1. 방 만들기 (Host)
+        document.getElementById('create-room-btn').addEventListener('click', () => {
+            roomId = roomInput.value;
+            if(!roomId) return alert("방 이름을 입력하세요!");
             
-            calculateMitigationPower(disasterName, isSilent = false) {
-                let totalPower = 0;
-                
-                const generalCards = this.activeMitigations.filter(c => c.mitigationType === 'general');
-                const numGeneral = generalCards.length;
-                if (numGeneral > 0) {
-                    const baseGeneralPower = generalCards.reduce((sum, card) => sum + card.power, 0);
-                    totalPower += baseGeneralPower * numGeneral;
-                }
-                
-                const specificCards = this.activeMitigations.filter(
-                    c => c.mitigationType === 'specific' && disasterName.includes(c.disasterTarget)
-                );
-                
-                if (specificCards.length > 0) {
-                    const preventionPower = specificCards.filter(c => c.phase === MitigationPhase.PREVENTION).reduce((sum, c) => sum + c.power, 0);
-                    const preparednessPower = specificCards.filter(c => c.phase === MitigationPhase.PREPAREDNESS).reduce((sum, c) => sum + c.power, 0);
-                    const baseTotal = preventionPower + preparednessPower;
-                    
-                    if (preventionPower > 0 && preparednessPower > 0) {
-                        const comboBonus = Math.max(preventionPower, preparednessPower);
-                        totalPower += baseTotal + comboBonus;
-                        if(!isSilent) game.showMessage(`[방재 콤보 발동!] ${disasterName} 방재 시너지! (+${comboBonus} 보너스)`, 'log-action');
-                    } else {
-                        totalPower += baseTotal;
-                    }
-                }
-                return totalPower;
-            }
+            myRole = 'host';
+            document.getElementById('my-role').innerText = "Host (나)";
+            document.getElementById('opp-role').innerText = "Guest (상대)";
             
-            takeDamage(damageAmount, disasterName, disasterType, currentEvent = null) {
-                let finalDamage = damageAmount;
-                let vulnerabilityMsg = "";
+            // DB에 방 초기화
+            set(ref(db, 'rooms/' + roomId), gameState);
+            
+            startGameUI();
+        });
 
-                if (this.cityType && this.cityType.weakType === disasterType) {
-                    finalDamage = Math.floor(damageAmount * 1.5);
-                    vulnerabilityMsg = ` (⚠️취약점!)`;
-                }
+        // 2. 방 참가하기 (Guest)
+        document.getElementById('join-room-btn').addEventListener('click', () => {
+            roomId = roomInput.value;
+            if(!roomId) return alert("방 이름을 입력하세요!");
 
-                const mitigationPower = this.calculateMitigationPower(disasterName);
-                const penetratingDamage = Math.max(0, finalDamage - mitigationPower);
-                
-                let logMsg = `${this.name}님: ${disasterName}${vulnerabilityMsg} 피격! (데미지: ${finalDamage}) | 방어: ${mitigationPower} | 피해: ${penetratingDamage}`;
-                
-                if (penetratingDamage > 0) {
-                    this.totalDamageTaken += penetratingDamage;
-                    logMsg += ` | 누적: ${this.totalDamageTaken}`;
-                } else {
-                    logMsg += " | 완벽 방어!";
-                }
-                game.showMessage(logMsg, 'log-damage');
-                if (this.totalDamageTaken >= 2000) {
-                    game.endGame(this);
-                }
-            }
+            myRole = 'guest';
+            document.getElementById('my-role').innerText = "Guest (나)";
+            document.getElementById('opp-role').innerText = "Host (상대)";
+            
+            startGameUI();
+        });
+
+        function startGameUI() {
+            lobbyScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            listenGameData(); // 데이터 동기화 시작
         }
 
-        class GameManager {
-            constructor() {
-                this.player1 = new Player("플레이어 1");
-                this.player2 = new Player("플레이어 2");
-                this.mainDeck = new Deck();
-                this.currentPlayer = this.player1;
-                this.selectedCardIds = [];
-                this.gameOver = false;
-                this.TURN_LIMIT = 20;
-                this.currentTurn = 0;
-                this.currentEvent = EVENTS[0];
-
-                this.dom = {}; 
-                this.setupGame();
-                this.initDOMElements();
-                this.addEventListeners();
-                
-                // [수정] 바로 오버레이를 띄우지 않고 인트로 화면 대기
-                // this.prepareTurnOverlay(); 
-            }
-
-            setupGame() {
-                let allCards = [];
-                // 재난 4세트
-                for (let i = 0; i < 4; i++) {
-                    DISASTER_DATA.forEach(card => { allCards.push(new DisasterCard(card.name, card.disasterType, card.baseDamage)); });
-                }
-                // 특정 방재 3세트
-                for (let i = 0; i < 3; i++) {
-                    SPECIFIC_MITIGATION_DATA.forEach(card => { allCards.push(new MitigationCard(card.name, card.cost, card.power, card.mitigationType, card.phase, card.disasterTarget)); });
-                }
-                // 범용 방재 1세트
-                GENERAL_MITIGATION_DATA.forEach(card => { allCards.push(new MitigationCard(card.name, card.cost, card.power, card.mitigationType, card.phase, card.disasterTarget)); });
-                
-                this.mainDeck.build(allCards); 
-                
-                this.player1.cityType = CITY_TYPES[Math.floor(Math.random() * CITY_TYPES.length)];
-                this.player2.cityType = CITY_TYPES[Math.floor(Math.random() * CITY_TYPES.length)];
-
-                this.player1.drawCard(this.mainDeck, 6);
-                this.player2.drawCard(this.mainDeck, 6);
-                
-                // [유지] 밸런스 패치: 플레이어 2 초기 자금 +200원
-                this.player2.currency += 200;
-            }
-
-            initDOMElements() {
-                this.dom = {
-                    introScreen: document.getElementById('intro-screen'),
-                    gameStartBtn: document.getElementById('game-start-btn'),
-
-                    overlay: document.getElementById('turn-overlay'),
-                    overlayTitle: document.getElementById('overlay-player-name'),
-                    overlayContent: document.getElementById('overlay-content'),
-                    startTurnBtn: document.getElementById('start-turn-btn'),
-                    
-                    newsModal: document.getElementById('news-modal'),
-                    newsBadge: document.getElementById('news-badge'),
-                    newsTitle: document.getElementById('news-title'),
-                    newsDesc: document.getElementById('news-desc'),
-                    confirmNewsBtn: document.getElementById('confirm-news-btn'),
-                    tickerText: document.getElementById('ticker-text'),
-
-                    gameContainer: document.getElementById('game-container'),
-                    
-                    myName: document.getElementById('my-name'),
-                    myCityBadge: document.getElementById('my-city-badge'),
-                    myCurrency: document.getElementById('my-currency-val'),
-                    myDamage: document.getElementById('my-damage-val'),
-                    myAP: document.getElementById('my-ap-val'),
-                    myField: document.getElementById('my-field'),
-                    myHand: document.getElementById('my-hand'), 
-                    myDefenseStats: document.getElementById('my-defense-stats'),
-
-                    opponentName: document.getElementById('opponent-name'),
-                    opponentCityBadge: document.getElementById('opponent-city-badge'),
-                    opponentCurrency: document.getElementById('opponent-currency-val'),
-                    opponentDamage: document.getElementById('opponent-damage-val'),
-                    opponentField: document.getElementById('opponent-field'),
-                    opponentHand: document.getElementById('opponent-hand'),
-                    
-                    playBtn: document.getElementById('play-selected-btn'),
-                    drawCardBtn: document.getElementById('draw-card-btn'),
-                    recoverBtn: document.getElementById('recover-btn'),
-                    endTurnBtn: document.getElementById('end-turn-btn'),
-                    messageLog: document.getElementById('message-log'),
-                };
-            }
-
-            addEventListeners() {
-                // [추가] 인트로 화면의 게임 시작 버튼
-                this.dom.gameStartBtn.addEventListener('click', () => {
-                    this.dom.introScreen.style.display = 'none';
-                    this.prepareTurnOverlay();
-                });
-
-                this.dom.startTurnBtn.addEventListener('click', () => this.startTurnProcess());
-                this.dom.confirmNewsBtn.addEventListener('click', () => this.enterMainGame());
-                
-                this.dom.endTurnBtn.addEventListener('click', () => this.switchTurn());
-                this.dom.playBtn.addEventListener('click', () => this.handlePlaySelected());
-                this.dom.drawCardBtn.addEventListener('click', () => this.handleDrawExtraCard());
-                this.dom.recoverBtn.addEventListener('click', () => this.handleRecovery());
-                
-                this.dom.gameContainer.addEventListener('click', (e) => {
-                    const cardEl = e.target.closest('.card');
-                    if (cardEl && cardEl.closest('#my-hand')) {
-                        this.handleCardClick(cardEl);
-                    }
-                });
-            }
+        // 3. 데이터 동기화 (핵심 로직)
+        function listenGameData() {
+            const roomRef = ref(db, 'rooms/' + roomId);
             
-            prepareTurnOverlay() {
-                this.dom.overlayTitle.textContent = `${this.currentPlayer.name}님의 턴입니다. (총 ${this.TURN_LIMIT}턴 중 ${this.currentTurn}턴)`;
-                this.dom.overlay.style.display = 'flex';
-                this.dom.gameContainer.style.display = 'none';
-            }
+            onValue(roomRef, (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return; // 데이터 없음
 
-            startTurnProcess() {
-                this.currentTurn++;
-                if (this.currentTurn > this.TURN_LIMIT) {
-                    this.endGame(null, true);
-                    return;
+                // 화면 업데이트
+                document.getElementById('my-hp').innerText = data[myRole].hp;
+                document.getElementById('my-money').innerText = data[myRole].money;
+                
+                const oppRole = (myRole === 'host') ? 'guest' : 'host';
+                document.getElementById('opp-hp').innerText = data[oppRole].hp;
+                document.getElementById('opp-money').innerText = data[oppRole].money;
+
+                // 턴 확인
+                isMyTurn = (data.turn === myRole);
+                document.getElementById('my-area').style.borderColor = isMyTurn ? '#007bff' : '#ccc';
+                document.getElementById('atk-btn').disabled = !isMyTurn;
+                document.getElementById('turn-end-btn').disabled = !isMyTurn;
+
+                // 로그 출력
+                if(msgLog.lastChild?.innerText !== data.log) {
+                    const p = document.createElement('p');
+                    p.innerText = data.log;
+                    msgLog.appendChild(p);
+                    msgLog.scrollTop = msgLog.scrollHeight;
                 }
-
-                // 랜덤 뉴스
-                this.currentEvent = EVENTS[Math.floor(Math.random() * EVENTS.length)];
-                
-                this.dom.newsBadge.textContent = this.currentEvent.badge;
-                this.dom.newsBadge.className = `news-badge ${this.currentEvent.bg}`;
-                this.dom.newsTitle.textContent = this.currentEvent.name;
-                this.dom.newsDesc.innerHTML = this.currentEvent.desc;
-
-                this.dom.overlay.style.display = 'none';
-                this.dom.newsModal.style.display = 'flex';
-            }
-
-            enterMainGame() {
-                this.dom.newsModal.style.display = 'none';
-                this.dom.gameContainer.style.display = 'block';
-                
-                this.dom.tickerText.innerHTML = `[${this.currentEvent.badge}] ${this.currentEvent.name}: ${this.currentEvent.desc}`;
-                this.showMessage(`📢 [뉴스 속보] ${this.currentEvent.name}`, 'log-news');
-
-                this.selectedCardIds = [];
-                
-                this.currentPlayer.drawCard(this.mainDeck, 1);
-                
-                const salary = 100;
-                this.currentPlayer.currency += salary;
-                this.showMessage(`턴 수입 +${salary}원 (현재: ${this.currentPlayer.currency})`, 'log-info');
-
-                this.currentPlayer.actionPoints = 2;
-                this.updateButtons();
-                this.render();
-            }
-
-            switchTurn() {
-                if (this.gameOver) return;
-                this.currentPlayer = (this.currentPlayer === this.player1) ? this.player2 : this.player1;
-                this.prepareTurnOverlay();
-            }
-
-            updateButtons() {
-                const ap = this.currentPlayer.actionPoints;
-                this.dom.playBtn.disabled = (ap < 1);
-                this.dom.drawCardBtn.disabled = (ap < 1);
-                this.dom.recoverBtn.disabled = (ap < 1);
-            }
-
-            render() {
-                if (this.gameOver) return;
-                const opponent = (this.currentPlayer === this.player1) ? this.player2 : this.player1;
-
-                this.dom.myName.textContent = this.currentPlayer.name;
-                this.dom.myCityBadge.innerHTML = `${this.currentPlayer.cityType.name} <span class='weakness-highlight'>(⚠️ ${this.currentPlayer.cityType.weakText})</span>`;
-                
-                this.dom.myAP.textContent = this.currentPlayer.actionPoints;
-                this.dom.myCurrency.textContent = this.currentPlayer.currency;
-                this.dom.myDamage.textContent = this.currentPlayer.totalDamageTaken;
-                
-                this.dom.myField.innerHTML = this.currentPlayer.activeMitigations.map(card => this.createCardElement(card, false, false)).join('');
-                this.dom.myHand.innerHTML = this.currentPlayer.hand.map(card => this.createCardElement(card, false, false)).join('');
-                this.updateDefenseStats();
-
-                this.dom.opponentName.textContent = opponent.name;
-                this.dom.opponentCityBadge.textContent = opponent.cityType.name;
-                this.dom.opponentCurrency.textContent = opponent.currency;
-                this.dom.opponentDamage.textContent = opponent.totalDamageTaken;
-                this.dom.opponentField.innerHTML = opponent.activeMitigations.map(card => this.createCardElement(card, false, true)).join('');
-                this.dom.opponentHand.innerHTML = opponent.hand.map(card => this.createCardElement(card, true, false)).join('');
-            }
-
-            updateDefenseStats() {
-                const p = this.currentPlayer;
-                const generalCards = p.activeMitigations.filter(c => c.mitigationType === 'general');
-                let generalPower = 0;
-                if (generalCards.length > 0) {
-                    const baseGeneralPower = generalCards.reduce((sum, card) => sum + card.power, 0);
-                    generalPower = baseGeneralPower * generalCards.length;
-                }
-                const snow = p.calculateMitigationPower("대설", true);
-                const cold = p.calculateMitigationPower("한파", true);
-                const rain = p.calculateMitigationPower("폭우", true);
-                const typhoon = p.calculateMitigationPower("태풍", true);
-                
-                const fire = p.calculateMitigationPower("산불", true);
-                const landslide = p.calculateMitigationPower("산사태", true);
-                
-                const w = p.cityType.weakType;
-                
-                const winterClass = w === DisasterType.WINTER ? 'weak' : '';
-                const windClass = w === DisasterType.WIND_FLOOD ? 'weak' : '';
-                const mountainClass = w === DisasterType.MOUNTAIN ? 'weak' : '';
-                
-                const winterLabel = w === DisasterType.WINTER ? '<span class="weak-label">⚠️취약</span>' : '';
-                const windLabel = w === DisasterType.WIND_FLOOD ? '<span class="weak-label">⚠️취약</span>' : '';
-                const mountainLabel = w === DisasterType.MOUNTAIN ? '<span class="weak-label">⚠️취약</span>' : '';
-
-                this.dom.myDefenseStats.innerHTML = `
-                    <div style="width:100%; text-align:center; padding-bottom:5px; margin-bottom:5px; border-bottom:1px solid #ccc;">
-                        <span style="font-weight:bold; color:#007bff;">🛡️ 범용 방재력: ${generalPower}</span>
-                        <span style="font-size:0.8em; color:#666;">(모든 재난 방어력에 자동 합산됨)</span>
-                    </div>
-                    <div class="defense-row">
-                        <div class="def-category ${winterClass}">
-                            <div class="def-title">❄️ 겨울 ${winterLabel}</div>
-                            <div class="def-item"><span>대설</span><span class="def-val">${snow}</span></div>
-                            <div class="def-item"><span>한파</span><span class="def-val">${cold}</span></div>
-                        </div>
-                        <div class="def-category ${windClass}">
-                            <div class="def-title">⛈️ 풍수해 ${windLabel}</div>
-                            <div class="def-item"><span>폭우</span><span class="def-val">${rain}</span></div>
-                            <div class="def-item"><span>태풍</span><span class="def-val">${typhoon}</span></div>
-                        </div>
-                        <div class="def-category ${mountainClass}">
-                            <div class="def-title">⛰️ 산악 ${mountainLabel}</div>
-                            <div class="def-item"><span>산불</span><span class="def-val">${fire}</span></div>
-                            <div class="def-item"><span>산사태</span><span class="def-val">${landslide}</span></div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            createCardElement(card, isHiddenInHand, isHiddenOnField) {
-                if (isHiddenInHand) return `<div class="card hidden"></div>`;
-                
-                let typeClass = `type-${card.cardType}`;
-                let cardName = card.name;
-                let details = '';
-
-                let displayCost = card.cost;
-                let costStyle = "";
-                if (!isHiddenInHand && !isHiddenOnField && card.cardType !== 'disaster') {
-                    if (this.currentEvent.type === 'cost_up') { displayCost += this.currentEvent.val; costStyle = "color:#d32f2f; font-weight:bold;"; }
-                    if (this.currentEvent.type === 'cost_down') { displayCost = Math.max(0, displayCost - this.currentEvent.val); costStyle = "color:#1976d2; font-weight:bold;"; }
-                }
-
-                if (isHiddenOnField) {
-                    typeClass = 'obfuscated';
-                    details = `<div class="card-type">(설치됨)</div>`;
-                    if (card.mitigationType === 'general') cardName = '범용 방재 시설';
-                    else {
-                        const winter = ["대설", "한파"];
-                        const wind_flood = ["폭우", "태풍"];
-                        const mountain = ["산불", "산사태"];
-                        
-                        if (winter.includes(card.disasterTarget)) cardName = '겨울철 방재 시설';
-                        else if (wind_flood.includes(card.disasterTarget)) cardName = '풍수해 방재 시설';
-                        else if (mountain.includes(card.disasterTarget)) cardName = '산악 재난 방재 시설';
-                        else cardName = '특정 방재 시설';
-                    }
-                } else if (card.cardType === 'disaster') {
-                    let displayDmg = card.baseDamage;
-                    let dmgStyle = "";
-                    if (this.currentEvent.type === 'attack_buff') {
-                        displayDmg = Math.floor(displayDmg * this.currentEvent.val);
-                        dmgStyle = "color:#d32f2f; font-weight:bold;";
-                    }
-                    details = `<div class="card-power" style="${dmgStyle}">피해: ${displayDmg}</div><div class="card-type">${card.disasterType}</div>`;
-                } else {
-                    details = `<div class="card-cost" style="${costStyle}">비용: ${displayCost}</div><div class="card-power">방재력: ${card.power}</div><div class="card-type">${card.phase}</div>`;
-                }
-                
-                const isSelected = this.selectedCardIds.includes(card.id);
-                return `<div class="card ${isSelected ? 'selected' : ''} ${typeClass}" data-card-id="${card.id}"><div class="card-name">${cardName}</div>${details}</div>`;
-            }
-
-            handleCardClick(clickedCardElement) {
-                const cardId = clickedCardElement.dataset.cardId;
-                if (!cardId) return;
-                
-                if (this.currentPlayer.actionPoints < 1 && !this.selectedCardIds.includes(cardId)) {
-                    this.showMessage("AP가 부족하여 더 이상 카드를 선택할 수 없습니다.", 'log-info');
-                    return;
-                }
-                
-                if (this.selectedCardIds.includes(cardId)) {
-                    this.selectedCardIds = this.selectedCardIds.filter(id => id !== cardId);
-                } else {
-                    this.selectedCardIds.push(cardId);
-                }
-                
-                this.render();
-            }
-
-            handlePlaySelected() {
-                const selectedCards = this.currentPlayer.hand.filter(card => this.selectedCardIds.includes(card.id));
-                const numCards = selectedCards.length;
-                
-                if (numCards === 0) { this.showMessage("카드를 선택하세요.", 'log-info'); return; }
-                if (this.currentPlayer.actionPoints < numCards) { this.showMessage("AP 부족", 'log-info'); return; }
-                
-                const mitigationCards = selectedCards.filter(c => c instanceof MitigationCard);
-                const disasterCards = selectedCards.filter(c => c instanceof DisasterCard);
-                
-                let totalCost = 0;
-                mitigationCards.forEach(card => {
-                    let cost = card.cost;
-                    if (this.currentEvent.type === 'cost_up') cost += this.currentEvent.val;
-                    if (this.currentEvent.type === 'cost_down') cost = Math.max(0, cost - this.currentEvent.val);
-                    totalCost += cost;
-                });
-
-                if (this.currentPlayer.currency < totalCost) {
-                    this.showMessage(`비용 부족 (필요: ${totalCost})`, 'log-info'); return;
-                }
-
-                this.currentPlayer.currency -= totalCost;
-                this.currentPlayer.actionPoints -= numCards;
-
-                this.playMitigationCards(mitigationCards);
-                this.playDisasterCards(disasterCards);
-                
-                if (mitigationCards.length > 0) this.showMessage(`방재 카드 ${mitigationCards.length}장 설치 (비용: ${totalCost})`, 'log-action');
-                
-                this.selectedCardIds = [];
-                this.updateButtons();
-                this.render();
-            }
-
-            handleDrawExtraCard() {
-                if (this.currentPlayer.actionPoints < 1) { this.showMessage("AP 부족", 'log-info'); return; }
-                this.currentPlayer.actionPoints -= 1;
-                this.currentPlayer.drawCard(this.mainDeck, 1);
-                this.showMessage("카드 뽑기 완료", 'log-draw');
-                this.updateButtons();
-                this.render();
-            }
-
-            handleRecovery() {
-                if (this.currentPlayer.actionPoints < 1) { this.showMessage("AP 부족", 'log-info'); return; }
-                if (this.currentPlayer.totalDamageTaken <= 0) { this.showMessage("피해 없음", 'log-info'); return; }
-                
-                let multiplier = 2;
-                if (this.currentEvent.type === 'recover_nerf') multiplier = 3;
-                if (this.currentEvent.type === 'recover_buff') multiplier = 1.5;
-
-                const maxRecoverable = Math.floor(this.currentPlayer.currency / multiplier);
-                const realMax = Math.min(this.currentPlayer.totalDamageTaken, maxRecoverable);
-
-                if (realMax <= 0) { this.showMessage(`예산 부족 (비용 배율: x${multiplier})`, 'log-info'); return; }
-
-                const input = prompt(`복구할 피해량 입력 (최대 ${realMax})\n현재 비용 배율: x${multiplier}`);
-                if (input === null) return;
-                const amount = parseInt(input);
-                
-                if (isNaN(amount) || amount <= 0 || amount > realMax) { this.showMessage("유효한 숫자 입력 요망", 'log-info'); return; }
-
-                const cost = Math.floor(amount * multiplier);
-                this.currentPlayer.currency -= cost;
-                this.currentPlayer.totalDamageTaken -= amount;
-                this.currentPlayer.actionPoints -= 1;
-
-                this.showMessage(`피해 ${amount} 복구 완료 (비용: ${cost})`, 'log-action');
-                this.updateButtons();
-                this.render();
-            }
-
-            playMitigationCards(cards) {
-                cards.forEach(card => {
-                    this.currentPlayer.hand = this.currentPlayer.hand.filter(c => c.id !== card.id);
-                    this.currentPlayer.activeMitigations.push(card);
-                });
-            }
-
-            playDisasterCards(cards) {
-                if (cards.length === 0) return;
-                const opponent = (this.currentPlayer === this.player1) ? this.player2 : this.player1;
-
-                if (cards.length === 1) {
-                    const card = cards[0];
-                    this.currentPlayer.hand = this.currentPlayer.hand.filter(c => c.id !== card.id);
-                    
-                    let dmg = card.baseDamage;
-                    if(this.currentEvent.type === 'attack_buff') dmg = Math.floor(dmg * this.currentEvent.val);
-
-                    opponent.takeDamage(dmg, card.name, card.disasterType, this.currentEvent);
-                    this.currentPlayer.drawCard(this.mainDeck, 1);
-                } 
-                else if (cards.length === 2 && cards[0].disasterType === cards[1].disasterType) {
-                    const [card1, card2] = cards;
-                    let baseDmg = card1.baseDamage + card2.baseDamage;
-                    if(this.currentEvent.type === 'attack_buff') baseDmg = Math.floor(baseDmg * this.currentEvent.val);
-                    
-                    const comboDmg = baseDmg * 2; 
-                    
-                    this.showMessage(`[재난 콤보] ${card1.disasterType} 연쇄 발생!`, 'log-damage');
-                    this.currentPlayer.hand = this.currentPlayer.hand.filter(c => c.id !== card1.id && c.id !== card2.id);
-                    opponent.takeDamage(comboDmg, `${card1.name} & ${card2.name}`, card1.disasterType, this.currentEvent);
-                    this.currentPlayer.drawCard(this.mainDeck, 2);
-                } 
-                else if (cards.length > 0) {
-                    this.showMessage("재난 콤보 실패 (유형 불일치)", 'log-info');
-                    cards.forEach(card => {
-                        this.currentPlayer.hand = this.currentPlayer.hand.filter(c => c.id !== card.id);
-                        let dmg = card.baseDamage;
-                        if(this.currentEvent.type === 'attack_buff') dmg = Math.floor(dmg * this.currentEvent.val);
-                        opponent.takeDamage(dmg, card.name, card.disasterType, this.currentEvent);
-                        this.currentPlayer.drawCard(this.mainDeck, 1);
-                    });
-                }
-            }
-            
-            showMessage(msg, type) {
-                const p = document.createElement('p'); p.innerHTML = msg; p.className = type;
-                this.dom.messageLog.appendChild(p);
-                this.dom.messageLog.scrollTop = this.dom.messageLog.scrollHeight;
-            }
-
-            endGame(loser, isTimeLimit = false) {
-                this.gameOver = true;
-                let msg = "";
-                let subMsg = "";
-                let winner;
-
-                if (isTimeLimit) {
-                    const p1 = this.player1.totalDamageTaken;
-                    const p2 = this.player2.totalDamageTaken;
-                    if (p1 < p2) { msg = `${this.player1.name} 승리!`; subMsg = "최소 피해 방어 성공"; winner = this.player1; }
-                    else if (p2 < p1) { msg = `${this.player2.name} 승리!`; subMsg = "최소 피해 방어 성공"; winner = this.player2; }
-                    else { msg = "무승부"; subMsg = "피해량이 동일합니다."; winner = null; }
-                } else {
-                    winner = (loser === this.player1) ? this.player2 : this.player1;
-                    msg = `${winner.name} 승리!`;
-                    subMsg = "상대방 도시 파산";
-                }
-
-                this.dom.overlay.style.display = 'flex';
-                this.dom.overlayTitle.textContent = "🏆 게임 종료 🏆";
-                this.dom.overlayTitle.style.color = "#FFD700"; // Gold color
-                
-                // 결과 요약 테이블 생성
-                const summaryHTML = `
-                    <div class="summary-box">
-                        <div style="font-size:1.5em; font-weight:bold; text-align:center; margin-bottom:10px;">${msg}</div>
-                        <div style="text-align:center; color:#ccc; margin-bottom:20px;">(${subMsg})</div>
-                        <table class="summary-table">
-                            <thead>
-                                <tr>
-                                    <th>항목</th>
-                                    <th>${this.player1.name}</th>
-                                    <th>${this.player2.name}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>누적 피해</td>
-                                    <td class="val-bad">${this.player1.totalDamageTaken}</td>
-                                    <td class="val-bad">${this.player2.totalDamageTaken}</td>
-                                </tr>
-                                <tr>
-                                    <td>남은 예산</td>
-                                    <td class="val-good">${this.player1.currency}</td>
-                                    <td class="val-good">${this.player2.currency}</td>
-                                </tr>
-                                <tr>
-                                    <td>진행 턴</td>
-                                    <td colspan="2" style="text-align:center">${this.currentTurn} / ${this.TURN_LIMIT}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-
-                this.dom.overlayContent.innerHTML = summaryHTML;
-                document.getElementById('start-turn-btn').style.display = 'none';
-                
-                if(!document.getElementById('restart-btn')) {
-                    const btn = document.createElement('button');
-                    btn.id = 'restart-btn';
-                    btn.textContent = "다시 하기";
-                    btn.style.fontSize = "1.5em"; btn.style.padding = "15px 40px"; btn.style.marginTop = "20px";
-                    btn.style.cursor = "pointer"; btn.style.backgroundColor = "#28a745"; btn.style.color = "white"; btn.style.border = "none"; btn.style.borderRadius = "8px";
-                    btn.onclick = () => location.reload();
-                    this.dom.overlay.appendChild(btn);
-                }
-            }
+            });
         }
-        
-        let game;
-        document.addEventListener('DOMContentLoaded', () => { game = new GameManager(); });
+
+        // 4. 액션 (공격 테스트)
+        window.attack = function() {
+            if(!isMyTurn) return;
+            
+            const oppRole = (myRole === 'host') ? 'guest' : 'host';
+            
+            // 현재 상태 읽어오기 (간단하게 구현하기 위해 바로 업데이트 사용)
+            // 실제로는 트랜잭션을 쓰는게 안전하지만 여기선 update로 처리
+            // 상대방 체력을 10 깎음
+            const updates = {};
+            
+            // 주의: DB에서 값을 먼저 읽어와야 정확하지만, 여기선 편의상 화면 값을 참조
+            // 실제 구현 시에는 snapshot 데이터를 기반으로 계산해야 함
+            const currentOppHp = parseInt(document.getElementById('opp-hp').innerText);
+            
+            updates[`rooms/${roomId}/${oppRole}/hp`] = currentOppHp - 10;
+            updates[`rooms/${roomId}/log`] = `${myRole}가 공격했습니다! (10 피해)`;
+            
+            update(ref(db), updates);
+        };
+
+        // 5. 턴 넘기기
+        window.endTurn = function() {
+            if(!isMyTurn) return;
+            const nextTurn = (myRole === 'host') ? 'guest' : 'host';
+            
+            const updates = {};
+            updates[`rooms/${roomId}/turn`] = nextTurn;
+            updates[`rooms/${roomId}/log`] = `턴이 변경되었습니다: ${nextTurn}의 차례`;
+            
+            update(ref(db), updates);
+        }
     </script>
 </body>
 </html>
