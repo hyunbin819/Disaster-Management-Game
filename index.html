@@ -27,16 +27,6 @@
         #join-btn { background-color: #007bff; }
         .intro-btn:hover { transform: scale(1.05); filter: brightness(1.1); }
         
-        /* 인트로 텍스트 상세 스타일 */
-        .intro-title { font-size: 2.5em; font-weight: bold; color: #0056b3; margin-bottom: 20px; }
-        .intro-section { margin-bottom: 25px; text-align: left; padding-bottom: 15px; }
-        .intro-section.rules { border-bottom: none; }
-        .intro-section h3 { color: #d32f2f; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 1.3em; }
-        .intro-list { list-style-type: disc; padding-left: 20px; margin-top: 10px;}
-        .intro-list li { margin-bottom: 8px; line-height: 1.6; font-size: 1em; }
-        .highlight { font-weight: bold; color: #d32f2f; background-color: #ffebee; padding: 2px 5px; border-radius: 4px; }
-        /* -------------------------- */
-
         /* 1. 턴 대기 오버레이 */
         #turn-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -50,13 +40,30 @@
         #start-turn-btn:hover { transform: scale(1.05); background-color: #0056b3; }
 
         /* 결과 요약 테이블 스타일 */
-        .summary-box { background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 15px; margin-bottom: 30px; min-width: 300px; text-align: left; }
-        .summary-table { width: 100%; border-collapse: collapse; color: white; font-size: 1.1em; }
-        .summary-table th, .summary-table td { padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); }
-        .summary-table th { color: #aaa; font-weight: normal; font-size: 0.9em; }
+        #result-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.9); z-index: 6000; color: white;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .result-box { 
+            background: #212529; 
+            padding: 40px; 
+            border-radius: 20px; 
+            text-align: center; 
+            border: 2px solid gold;
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.2);
+            width: 90%;
+            max-width: 700px;
+        }
+        .summary-table { width: 100%; border-collapse: collapse; color: white; font-size: 1.1em; margin-top: 20px; }
+        .summary-table th, .summary-table td { padding: 12px 8px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); }
+        .summary-table th { color: #aaa; font-weight: normal; font-size: 0.9em; background-color: rgba(255,255,255,0.05); }
         .summary-table td:first-child { text-align: left; font-weight: bold; color: #ddd; }
         .val-bad { color: #ff6b6b; font-weight: bold; }
         .val-good { color: #51cf66; font-weight: bold; }
+        .val-city { color: #8195a9; }
+        #restart-btn-final { padding:15px 40px; margin-top:30px; cursor:pointer; background-color: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1.2em; }
+
 
         /* 2. 뉴스 속보 모달 */
         #news-modal {
@@ -90,7 +97,7 @@
         .player-stats { display: flex; gap: 15px; text-align: right; }
         .stat-box { font-size: 1.1em; font-weight: 700; background-color: #f8f9fa; padding: 8px 12px; border-radius: 6px; display: flex; align-items: center; gap: 5px; }
 
-        .card-container { display: flex; flex-wrap: wrap; gap: 10px; min-height: 120px; background-color: #f8f9fa; border-radius: 8px; padding: 15px; }
+        .card-container { display: flex; flex-wrap: wrap; gap: 10px; min-height: 120px; background-color: #f0f2f5; border-radius: 8px; padding: 15px; }
         .card { width: 110px; height: 160px; background-color: #fff; border: 2px solid #ddd; border-radius: 8px; padding: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.1s ease; display: flex; flex-direction: column; justify-content: space-between; font-size: 0.9em; user-select: none; }
         .card.selected { border: 3px solid #007bff !important; background-color: #e3f2fd !important; transform: scale(1.05); box-shadow: 0 0 15px rgba(0,123,255,0.4) !important; }
         
@@ -124,7 +131,7 @@
             </div>
             
             <div class="intro-section" style="border-bottom: 1px solid #eee; padding-bottom: 15px;">
-                <h3 style="color: #0056b3; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                <h3 style="color: #0056b3; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 1.3em;">
                     💡 핵심 승리 전략 (학습 포인트)
                 </h3>
                 <ul class="intro-list" style="text-align: left; padding-left: 20px; list-style-type: disc;">
@@ -206,12 +213,7 @@
     </div>
 
     <div id="result-modal" style="display:none;">
-        <div class="result-box">
-            <h1 id="result-title" style="color:gold;">게임 종료</h1>
-            <p id="result-desc"></p>
-            <button onclick="location.reload()" style="padding:10px 30px; margin-top:20px; cursor:pointer;">로비로 돌아가기</button>
         </div>
-    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -430,12 +432,12 @@
                     deck: deck,
                     host: {
                         name: 'Host', hp: 0, money: 1000, ap: 2,
-                        city: hostCity, maxHp: hostCity.maxHp,
+                        city: hostCity, maxHp: hostCity.maxHp, damageRecovered: 0, // 복구 피해 추적 필드 추가
                         hand: hostHand, field: []
                     },
                     guest: {
                         name: 'Guest', hp: 0, money: 1200, ap: 2, 
-                        city: guestCity, maxHp: guestCity.maxHp,
+                        city: guestCity, maxHp: guestCity.maxHp, damageRecovered: 0, // 복구 피해 추적 필드 추가
                         hand: guestHand, field: []
                     },
                     logHistory: ["게임을 시작합니다. Host의 턴입니다."], // 로그 배열 초기화
@@ -450,6 +452,7 @@
         }
 
         function connectGame() {
+            // [수정: 로비 화면 전환 로직]
             introScreen.style.display = 'none';
             document.getElementById('game-container').style.display = 'block';
             document.getElementById('turn-indicator').style.display = 'block';
@@ -678,6 +681,7 @@
             updates[`rooms/${roomId}/${myRole}/money`] = myData.money - cost;
             updates[`rooms/${roomId}/${myRole}/hp`] = myData.hp - amount;
             updates[`rooms/${roomId}/${myRole}/ap`] = myData.ap - 1;
+            updates[`rooms/${roomId}/${myRole}/damageRecovered`] = myData.damageRecovered + amount; // 복구량 누적
             updates[`rooms/${roomId}/logHistory`] = logHistory;
 
             await update(ref(db), updates);
@@ -822,7 +826,7 @@
             await update(ref(db), updates);
         });
 
-        // --- 게임 종료 확인 ---
+        // --- 게임 종료 확인 및 결과 요약 (FINAL UX) ---
         function checkGameOver() {
             if(!gameData || gameData.status === 'ended') return;
 
@@ -842,9 +846,54 @@
             }
 
             if(winner) {
-                document.getElementById('result-modal').style.display = 'flex';
-                document.getElementById('result-title').innerText = winner === 'Draw' ? "무승부" : `${winner} 승리!`;
-                document.getElementById('result-desc').innerText = reason;
+                // 상세 결과 요약 HTML 생성
+                const summaryHTML = `
+                    <div class="result-box">
+                        <h1 id="result-title" style="color:gold; font-size: 2.5em;">🏆 ${winner === 'Draw' ? "무승부" : `${winner} 승리!`} 🏆</h1>
+                        <p style="color:#ddd;">(${reason})</p>
+                        
+                        <table class="summary-table">
+                            <thead>
+                                <tr>
+                                    <th>항목</th>
+                                    <th>Host (${gameData.host.city.name})</th>
+                                    <th>Guest (${gameData.guest.city.name})</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>취약 재난</td>
+                                    <td class="val-city">${gameData.host.city.weakText}</td>
+                                    <td class="val-city">${gameData.guest.city.weakText}</td>
+                                </tr>
+                                <tr>
+                                    <td>누적 피해</td>
+                                    <td class="val-bad">${gameData.host.hp}</td>
+                                    <td class="val-bad">${gameData.guest.hp}</td>
+                                </tr>
+                                <tr>
+                                    <td>총 복구 피해</td>
+                                    <td class="val-good">${gameData.host.damageRecovered}</td>
+                                    <td class="val-good">${gameData.guest.damageRecovered}</td>
+                                </tr>
+                                <tr>
+                                    <td>남은 예산</td>
+                                    <td class="val-good">${gameData.host.money}</td>
+                                    <td class="val-good">${gameData.guest.money}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <button id="restart-btn-final" onclick="location.reload()">로비로 돌아가기</button>
+                    </div>
+                `;
+
+                // 모달 띄우기 및 내용 삽입
+                const resultModal = document.getElementById('result-modal');
+                if (resultModal) {
+                    resultModal.innerHTML = summaryHTML;
+                    resultModal.style.display = 'flex';
+                }
+
                 // DB에 종료 상태 기록 (무한루프 방지)
                 if(myRole === 'host') update(ref(db, `rooms/${roomId}`), { status: 'ended' });
             }
@@ -852,5 +901,3 @@
     </script>
 </body>
 </html>
-</html>
-
